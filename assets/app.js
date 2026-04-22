@@ -187,4 +187,9 @@ function init() {
   fetchData(false);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+/* Module scripts are deferred — DOM is ready when this executes */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

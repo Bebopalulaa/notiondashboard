@@ -91,9 +91,9 @@ canvas { display: block; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
 
 /* ═══════════════════════════════════════════════════════════ APP LAYOUT */
+/* Sidebar is position:fixed — no grid needed, just push main-wrapper right */
 #app {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  display: block;
   min-height: 100vh;
 }
 
@@ -102,7 +102,6 @@ canvas { display: block; }
   flex-direction: column;
   min-height: 100vh;
   margin-left: var(--sidebar-w);
-  overflow: hidden;
 }
 
 /* ═══════════════════════════════════════════════════════════ SIDEBAR */
@@ -757,7 +756,6 @@ th.sort-asc .sort-icon, th.sort-desc .sort-icon { color: var(--accent); }
 
 /* ═══════════════════════════════════════════════════════════ RESPONSIVE — TABLET */
 @media (max-width: 1023px) and (min-width: 768px) {
-  #app { grid-template-columns: var(--sidebar-w-sm) 1fr; }
   #main-wrapper { margin-left: var(--sidebar-w-sm); }
   #sidebar { width: var(--sidebar-w-sm); }
   .sidebar-logo .logo-label { display: none; }
@@ -777,7 +775,7 @@ th.sort-asc .sort-icon, th.sort-desc .sort-icon { color: var(--accent); }
 
 /* ═══════════════════════════════════════════════════════════ RESPONSIVE — MOBILE */
 @media (max-width: 767px) {
-  #app         { grid-template-columns: 1fr; padding-bottom: var(--bottomnav-h); }
+  #app         { padding-bottom: var(--bottomnav-h); }
   #main-wrapper { margin-left: 0; }
   #sidebar     { display: none; }
   #bottom-nav  { display: grid; }
