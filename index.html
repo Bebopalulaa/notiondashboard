@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <title>Prospect Dashboard</title>
+
+  <!-- Geist fonts -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-mono/style.css">
+
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════ ONBOARDING -->
+  <div id="onboarding" class="hidden">
+    <div class="onboarding-card">
+      <div class="onboarding-logo">
+        <span class="logo-icon">◈</span>
+        <h1>Prospect Dashboard</h1>
+        <p class="onboarding-subtitle">Dashboard de prospection cold email pour game studios</p>
+      </div>
+      <div class="onboarding-steps">
+        <h2>Configure ton dashboard</h2>
+        <ol>
+          <li>
+            <strong>Créer une intégration Notion</strong><br>
+            Va sur <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener">notion.so/my-integrations</a>
+            et crée une intégration interne.
+          </li>
+          <li>
+            <strong>Copier le token</strong><br>
+            Copie l'"Internal Integration Token" (commence par <code>secret_</code>).
+          </li>
+          <li>
+            <strong>Partager ta base Notion</strong><br>
+            Ouvre ta base → ··· → Connections → ajoute ton intégration.
+          </li>
+          <li>
+            <strong>Copier l'ID de la base</strong><br>
+            Dans l'URL : <code>notion.so/<strong>{database_id}</strong>?v=...</code>
+          </li>
+          <li>
+            <strong>(Optionnel) Déployer le proxy CORS</strong><br>
+            Consulte <code>worker/README.md</code> — recommandé.
+          </li>
+        </ol>
+      </div>
+      <a href="#settings" class="btn btn-primary btn-lg" id="onboarding-cta">
+        Configurer maintenant →
+      </a>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ APP SHELL -->
+  <div id="app" class="hidden">
+
+    <!-- ─── SIDEBAR ─── -->
+    <aside id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-label">Prospect DB</span>
+      </div>
+      <nav class="sidebar-nav" aria-label="Navigation principale">
+        <a href="#overview"  class="nav-item" data-route="overview">
+          <i data-lucide="layout-dashboard"></i><span>Vue d'ensemble</span>
+        </a>
+        <a href="#monthly"   class="nav-item" data-route="monthly">
+          <i data-lucide="calendar-days"></i><span>Activité mensuelle</span>
+        </a>
+        <a href="#funnel"    class="nav-item" data-route="funnel">
+          <i data-lucide="filter"></i><span>Funnel</span>
+        </a>
+        <a href="#list"      class="nav-item" data-route="list">
+          <i data-lucide="list"></i><span>Prospects</span>
+        </a>
+        <a href="#settings"  class="nav-item" data-route="settings">
+          <i data-lucide="settings"></i><span>Paramètres</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- ─── MAIN WRAPPER ─── -->
+    <div id="main-wrapper">
+
+      <!-- ── TOP HEADER ── -->
+      <header id="top-header">
+        <div class="header-left">
+          <button id="sidebar-toggle" class="icon-btn" aria-label="Menu">
+            <i data-lucide="menu"></i>
+          </button>
+          <h2 id="page-title">Vue d'ensemble</h2>
+        </div>
+        <div class="header-right">
+          <span id="last-sync" class="sync-badge">Jamais synchronisé</span>
+          <button id="refresh-btn" class="icon-btn" title="Actualiser" aria-label="Actualiser">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+          <button id="theme-toggle" class="icon-btn" title="Thème" aria-label="Changer le thème">
+            <i data-lucide="sun"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- ── ERROR BANNER ── -->
+      <div id="error-banner" class="error-banner hidden" role="alert" aria-live="assertive">
+        <i data-lucide="alert-triangle"></i>
+        <span id="error-message"></span>
+        <button id="error-retry" class="btn-link">Réessayer</button>
+        <button id="error-close" class="icon-btn error-close" aria-label="Fermer">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <!-- ── CONTENT ── -->
+      <main id="content">
+        <!-- All view content is injected dynamically by view modules -->
+        <section id="view-overview"  class="view hidden"></section>
+        <section id="view-monthly"   class="view hidden"></section>
+        <section id="view-funnel"    class="view hidden"></section>
+        <section id="view-list"      class="view hidden"></section>
+        <section id="view-settings"  class="view hidden"></section>
+      </main>
+    </div><!-- /main-wrapper -->
+
+    <!-- ─── BOTTOM NAV ─── -->
+    <nav id="bottom-nav" aria-label="Navigation mobile">
+      <a href="#overview"  class="bottom-nav-item" data-route="overview">
+        <i data-lucide="layout-dashboard"></i><span>Overview</span>
+      </a>
+      <a href="#monthly"   class="bottom-nav-item" data-route="monthly">
+        <i data-lucide="calendar-days"></i><span>Mensuel</span>
+      </a>
+      <a href="#funnel"    class="bottom-nav-item" data-route="funnel">
+        <i data-lucide="filter"></i><span>Funnel</span>
+      </a>
+      <a href="#list"      class="bottom-nav-item" data-route="list">
+        <i data-lucide="list"></i><span>Prospects</span>
+      </a>
+      <a href="#settings"  class="bottom-nav-item" data-route="settings">
+        <i data-lucide="settings"></i><span>Réglages</span>
+      </a>
+    </nav>
+
+  </div><!-- /app -->
+
+  <!-- ─── DRAWER ─── -->
+  <div id="drawer-overlay" class="drawer-overlay hidden" role="presentation"></div>
+  <div id="drawer" class="drawer hidden" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-header">
+      <h3 id="drawer-title">Studio</h3>
+      <button id="drawer-close" class="icon-btn" aria-label="Fermer"><i data-lucide="x"></i></button>
+    </div>
+    <div id="drawer-content" class="drawer-content"></div>
+    <div class="drawer-footer">
+      <a id="drawer-notion-link" href="#" target="_blank" rel="noopener" class="btn btn-primary">
+        Ouvrir dans Notion →
+      </a>
+      <button id="drawer-close-btn" class="btn btn-secondary">Fermer</button>
+    </div>
+  </div>
+
+  <!-- ─── SCRIPTS (non-module, must load before app.js module) ─── -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>
