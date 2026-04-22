@@ -39,20 +39,25 @@ function ymLabel(s) {
   return new Date(+y, +m - 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
 }
 
+function firstContactMonth(s) {
+  const dates = [s.dateEnvoiC1, s.dateEnvoiC2].filter(Boolean).sort();
+  return dates.length ? monthKey(dates[0]) : null;
+}
+
 function computeMonth(studios, ym) {
   const cnt = (a, b) => studios.reduce((n, s) =>
     n + (monthKey(a(s)) === ym ? 1 : 0) + (monthKey(b(s)) === ym ? 1 : 0), 0);
 
-  const contacted = studios.filter(s => monthKey(s.dateEnvoiC1) === ym || monthKey(s.dateEnvoiC2) === ym);
+  const contacted = studios.filter(s => firstContactMonth(s) === ym);
   const replied   = contacted.filter(s => s.c1Repondu || s.c2Repondu).length;
 
   return {
-    j0:      cnt(s => s.dateEnvoiC1,  s => s.dateEnvoiC2),
-    j3:      cnt(s => s.relEffC1J3,   s => s.relEffC2J3),
-    j7:      cnt(s => s.relEffC1J7,   s => s.relEffC2J7),
-    j14:     cnt(s => s.relEffC1J14,  s => s.relEffC2J14),
-    repus:   replied,
-    c1sent:  contacted.length,
+    j0:     cnt(s => s.dateEnvoiC1,  s => s.dateEnvoiC2),
+    j3:     cnt(s => s.relEffC1J3,   s => s.relEffC2J3),
+    j7:     cnt(s => s.relEffC1J7,   s => s.relEffC2J7),
+    j14:    cnt(s => s.relEffC1J14,  s => s.relEffC2J14),
+    repus:  replied,
+    c1sent: contacted.length,
   };
 }
 
