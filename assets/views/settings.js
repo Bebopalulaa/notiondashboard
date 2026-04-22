@@ -24,6 +24,7 @@ const FIELD_MAP = [
   ['s-field-rel-prev-c2-j14', 'notion_field_rel_prev_c2_j14', 'Relance prévue C2 J+14',    'Relance prévue C2 J+14'],
   ['s-field-rel-eff-c2-j14',  'notion_field_rel_eff_c2_j14',  'Relance effective C2 J+14', 'Relance effective C2 J+14'],
   ['s-field-c1-repondu',      'notion_field_c1_repondu',      'Contact 1 répondu ?',        'Réponse C1 (case à cocher)'],
+  ['s-field-c2-repondu',      'notion_field_c2_repondu',      'Contact 2 répondu ?',        'Réponse C2 (case à cocher)'],
 ];
 
 /* ── template ───────────────────────────────────────────────────── */
@@ -41,7 +42,7 @@ function template() {
   const name   = FIELD_MAP[2];
   const c1     = FIELD_MAP.slice(3, 10);
   const c2     = FIELD_MAP.slice(10, 17);
-  const resp   = FIELD_MAP[17];
+  const resp   = FIELD_MAP.slice(17, 19);
 
   return `
     <!-- 1. Connexion -->
@@ -96,7 +97,7 @@ function template() {
       ${c2.map(fieldInput).join('')}
 
       <div class="settings-subsection-title">Réponses</div>
-      ${fieldInput(resp)}
+      ${resp.map(fieldInput).join('')}
 
       <div class="settings-actions">
         <button id="reset-fields"         class="btn btn-secondary">Réinitialiser</button>

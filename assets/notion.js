@@ -30,6 +30,7 @@ const FIELD_DEFAULTS = {
   notion_field_statut:          'Statut',
   notion_field_statut_value:    'OUI',
   notion_field_name:            'Name',
+  notion_field_c2_repondu:      'Contact 2 répondu ?',
   notion_field_envoi_c1:        'Date envoi C1',
   notion_field_rel_prev_c1_j3:  'Relance prévue C1 J+3',
   notion_field_rel_eff_c1_j3:   'Relance effective C1 J+3',
@@ -114,15 +115,9 @@ async function fetchAllPages() {
   let hasMore = true;
   let cursor;
 
-  const statutField = lsField('notion_field_statut');
-  const statutValue = lsField('notion_field_statut_value');
-
   while (hasMore) {
     const body = { page_size: 100 };
     if (cursor) body.start_cursor = cursor;
-    if (statutField && statutValue) {
-      body.filter = { property: statutField, select: { equals: statutValue } };
-    }
 
     const data = await notionFetch(`/databases/${dbId}/query`, {
       method: 'POST',
@@ -136,6 +131,11 @@ async function fetchAllPages() {
 
   if (DEBUG) console.debug('[notion] fetched', all.length, 'pages');
   return all;
+}
+
+/** Read a text value from Select, Status, or rich_text property types. */
+function getPropText(p) {
+  return p?.select?.name || p?.status?.name || p?.rich_text?.[0]?.plain_text || '';
 }
 
 /* ── Property extractors ───────────────────────────────────────── */
@@ -169,6 +169,7 @@ export function normalizeStudio(page) {
     relPrevC2J14:  getDate(f('notion_field_rel_prev_c2_j14')),
     relEffC2J14:   getDate(f('notion_field_rel_eff_c2_j14')),
     c1Repondu:     getCheckbox(f('notion_field_c1_repondu')),
+    c2Repondu:     getCheckbox(f('notion_field_c2_repondu')),
   };
 }
 
@@ -183,8 +184,15 @@ export async function refreshData(force = false) {
     return cache.studios;
   }
 
-  const pages   = await fetchAllPages();
-  const studios = pages.map(normalizeStudio);
+  const pages = await fetchAllPages();
+
+  const statutField = lsField('notion_field_statut');
+  const statutValue = lsField('notion_field_statut_value');
+  const filtered = (statutField && statutValue)
+    ? pages.filter(p => getPropText(p.properties[statutField]) === statutValue)
+    : pages;
+
+  const studios = filtered.map(normalizeStudio);
 
   cache.studios   = studios;
   cache.fetchedAt = Date.now();

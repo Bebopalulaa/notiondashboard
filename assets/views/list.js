@@ -103,9 +103,10 @@ function renderList() {
         <td class="dots-cell">${dotsC(s, 1)}</td>
         <td>${fmtDate(s.dateEnvoiC2)}</td>
         <td class="dots-cell">${dotsC(s, 2)}</td>
-        <td>${s.c1Repondu
-          ? '<span style="color:var(--success)">✓</span>'
-          : '<span style="color:var(--text-faint)">✗</span>'}</td>
+        <td class="dots-cell">
+          <span title="C1">${s.c1Repondu ? '<span style="color:var(--success)">✓</span>' : '<span style="color:var(--text-faint)">✗</span>'}</span>
+          <span title="C2" style="margin-left:6px">${s.c2Repondu ? '<span style="color:var(--success)">✓</span>' : '<span style="color:var(--text-faint)">✗</span>'}</span>
+        </td>
       </tr>`).join('');
 
     tbody.querySelectorAll('tr[data-id]').forEach(row =>
@@ -188,14 +189,13 @@ function openDrawer(s) {
     ${drawerRelance('Relance J+3',  s.relPrevC1J3,  s.relEffC1J3)}
     ${drawerRelance('Relance J+7',  s.relPrevC1J7,  s.relEffC1J7)}
     ${drawerRelance('Relance J+14', s.relPrevC1J14, s.relEffC1J14)}
-    ${drawerRow('Répondu ?', s.c1Repondu
-      ? '<span style="color:var(--success)">✓ Oui</span>'
-      : '<span style="color:var(--text-faint)">✗ Non</span>')}
+    ${drawerRow('Répondu ?', s.c1Repondu ? '<span style="color:var(--success)">✓ Oui</span>' : '<span style="color:var(--text-faint)">✗ Non</span>')}
     <div class="drawer-section-title" style="margin-top:16px">Contact 2</div>
     ${drawerRow('Envoi J+0', fmtDate(s.dateEnvoiC2))}
     ${drawerRelance('Relance J+3',  s.relPrevC2J3,  s.relEffC2J3)}
     ${drawerRelance('Relance J+7',  s.relPrevC2J7,  s.relEffC2J7)}
-    ${drawerRelance('Relance J+14', s.relPrevC2J14, s.relEffC2J14)}`;
+    ${drawerRelance('Relance J+14', s.relPrevC2J14, s.relEffC2J14)}
+    ${drawerRow('Répondu ?', s.c2Repondu ? '<span style="color:var(--success)">✓ Oui</span>' : '<span style="color:var(--text-faint)">✗ Non</span>')}`;
 
   document.getElementById('drawer').classList.remove('hidden');
   document.getElementById('drawer-overlay').classList.remove('hidden');
@@ -250,7 +250,7 @@ function injectScaffold() {
               <th title="J+3 / J+7 / J+14">C1 Relances</th>
               <th class="sortable" data-col="dateEnvoiC2">C2 Envoi <span class="sort-icon">↕</span></th>
               <th title="J+3 / J+7 / J+14">C2 Relances</th>
-              <th class="sortable" data-col="c1Repondu">Réponse <span class="sort-icon">↕</span></th>
+              <th>Rép. C1/C2</th>
             </tr>
           </thead>
           <tbody id="list-tbody"></tbody>

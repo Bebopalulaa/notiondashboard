@@ -19,6 +19,7 @@ const DEFAULTS = {
   notion_field_statut:          'Statut',
   notion_field_statut_value:    'OUI',
   notion_field_name:            'Name',
+  notion_field_c2_repondu:      'Contact 2 répondu ?',
   notion_field_envoi_c1:        'Date envoi C1',
   notion_field_rel_prev_c1_j3:  'Relance prévue C1 J+3',
   notion_field_rel_eff_c1_j3:   'Relance effective C1 J+3',
