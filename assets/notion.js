@@ -27,6 +27,8 @@ const CACHE_TTL = 5 * 60 * 1000;
  */
 
 const FIELD_DEFAULTS = {
+  notion_field_statut:          'Statut',
+  notion_field_statut_value:    'OUI',
   notion_field_name:            'Name',
   notion_field_envoi_c1:        'Date envoi C1',
   notion_field_rel_prev_c1_j3:  'Relance prévue C1 J+3',
@@ -112,9 +114,15 @@ async function fetchAllPages() {
   let hasMore = true;
   let cursor;
 
+  const statutField = lsField('notion_field_statut');
+  const statutValue = lsField('notion_field_statut_value');
+
   while (hasMore) {
     const body = { page_size: 100 };
     if (cursor) body.start_cursor = cursor;
+    if (statutField && statutValue) {
+      body.filter = { property: statutField, select: { equals: statutValue } };
+    }
 
     const data = await notionFetch(`/databases/${dbId}/query`, {
       method: 'POST',

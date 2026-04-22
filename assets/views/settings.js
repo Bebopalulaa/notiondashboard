@@ -6,6 +6,8 @@ import { notionFetch, cache as notionCache } from '../notion.js';
 
 /* ── Field map: [htmlId, lsKey, placeholder, label] ────────────── */
 const FIELD_MAP = [
+  ['s-field-statut',          'notion_field_statut',          'Statut',                     'Champ Statut'],
+  ['s-field-statut-value',    'notion_field_statut_value',    'OUI',                        'Valeur à afficher'],
   ['s-field-name',            'notion_field_name',            'Name',                       'Nom du studio'],
   ['s-field-envoi-c1',        'notion_field_envoi_c1',        'Date envoi C1',              'Envoi C1 J+0'],
   ['s-field-rel-prev-c1-j3',  'notion_field_rel_prev_c1_j3',  'Relance prévue C1 J+3',     'Relance prévue C1 J+3'],
@@ -35,10 +37,11 @@ function fieldInput([id, , placeholder, label]) {
 }
 
 function template() {
-  const name = FIELD_MAP[0];
-  const c1   = FIELD_MAP.slice(1, 8);
-  const c2   = FIELD_MAP.slice(8, 15);
-  const resp = FIELD_MAP[15];
+  const filter = FIELD_MAP.slice(0, 2);
+  const name   = FIELD_MAP[2];
+  const c1     = FIELD_MAP.slice(3, 10);
+  const c2     = FIELD_MAP.slice(10, 17);
+  const resp   = FIELD_MAP[17];
 
   return `
     <!-- 1. Connexion -->
@@ -69,7 +72,17 @@ function template() {
       </div>
     </div>
 
-    <!-- 2. Mapping -->
+    <!-- 2. Filtrage -->
+    <div class="settings-card">
+      <h3 class="settings-card-title">Filtrage</h3>
+      <p class="settings-card-desc">Seules les entrées où le champ Statut correspond à la valeur indiquée seront affichées.</p>
+      ${filter.map(fieldInput).join('')}
+      <div class="settings-actions">
+        <button id="save-fields" class="btn btn-primary">Sauvegarder</button>
+      </div>
+    </div>
+
+    <!-- 3. Mapping -->
     <div class="settings-card">
       <h3 class="settings-card-title">Mapping des propriétés</h3>
       <p class="settings-card-desc">Entre le nom exact de chaque propriété tel qu'il apparaît dans Notion.</p>
@@ -86,8 +99,8 @@ function template() {
       ${fieldInput(resp)}
 
       <div class="settings-actions">
-        <button id="reset-fields" class="btn btn-secondary">Réinitialiser</button>
-        <button id="save-fields"  class="btn btn-primary">Sauvegarder</button>
+        <button id="reset-fields"         class="btn btn-secondary">Réinitialiser</button>
+        <button id="save-fields-mapping"  class="btn btn-primary">Sauvegarder</button>
       </div>
     </div>
 
@@ -215,6 +228,7 @@ function initEvents() {
   document.getElementById('save-connection')?.addEventListener('click', saveConnection);
   document.getElementById('test-connection')?.addEventListener('click', testConnection);
   document.getElementById('save-fields')?.addEventListener('click', saveFields);
+  document.getElementById('save-fields-mapping')?.addEventListener('click', saveFields);
   document.getElementById('reset-fields')?.addEventListener('click', resetFields);
 
   document.getElementById('force-sync')?.addEventListener('click', () => window.__appFetchData?.(true));
