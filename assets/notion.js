@@ -37,7 +37,7 @@ function lsField(key) { return ls(key) || FIELD_DEFAULTS[key] || ''; }
 function buildUrl(path) {
   const proxy = ls('notion_proxy_url').replace(/\/$/, '');
   if (proxy) return `${proxy}${path}`;
-  return `https://corsproxy.io/?url=${encodeURIComponent('https://api.notion.com/v1' + path)}`;
+  return `https://corsproxy.io/?url=https://api.notion.com/v1${path}`;
 }
 
 function authHeaders() {
