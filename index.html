@@ -4,11 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
   <title>Prospect Dashboard</title>
-  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Geist fonts -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-mono/style.css">
+
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════════════════ ONBOARDING -->
+  <!-- ══════════════════════════════════════════════════ ONBOARDING -->
   <div id="onboarding" class="hidden">
     <div class="onboarding-card">
       <div class="onboarding-logo">
@@ -22,7 +27,7 @@
           <li>
             <strong>Créer une intégration Notion</strong><br>
             Va sur <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener">notion.so/my-integrations</a>
-            et crée une nouvelle intégration interne.
+            et crée une intégration interne.
           </li>
           <li>
             <strong>Copier le token</strong><br>
@@ -30,7 +35,7 @@
           </li>
           <li>
             <strong>Partager ta base Notion</strong><br>
-            Dans Notion, ouvre ta base de studios → ··· → Connections → ajoute ton intégration.
+            Ouvre ta base → ··· → Connections → ajoute ton intégration.
           </li>
           <li>
             <strong>Copier l'ID de la base</strong><br>
@@ -38,7 +43,7 @@
           </li>
           <li>
             <strong>(Optionnel) Déployer le proxy CORS</strong><br>
-            Consulte <code>worker/README.md</code> — recommandé pour la fiabilité.
+            Consulte <code>worker/README.md</code> — recommandé.
           </li>
         </ol>
       </div>
@@ -48,7 +53,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════ APP SHELL -->
+  <!-- ══════════════════════════════════════════════════ APP SHELL -->
   <div id="app" class="hidden">
 
     <!-- ─── SIDEBAR ─── -->
@@ -89,233 +94,37 @@
         </div>
         <div class="header-right">
           <span id="last-sync" class="sync-badge">Jamais synchronisé</span>
-          <button id="refresh-btn" class="icon-btn" title="Actualiser les données" aria-label="Actualiser">
+          <button id="refresh-btn" class="icon-btn" title="Actualiser" aria-label="Actualiser">
             <i data-lucide="refresh-cw"></i>
           </button>
-          <button id="theme-toggle" class="icon-btn" title="Changer le thème" aria-label="Changer le thème">
+          <button id="theme-toggle" class="icon-btn" title="Thème" aria-label="Changer le thème">
             <i data-lucide="sun"></i>
           </button>
         </div>
       </header>
 
+      <!-- ── ERROR BANNER ── -->
+      <div id="error-banner" class="error-banner hidden" role="alert" aria-live="assertive">
+        <i data-lucide="alert-triangle"></i>
+        <span id="error-message"></span>
+        <button id="error-retry" class="btn-link">Réessayer</button>
+        <button id="error-close" class="icon-btn error-close" aria-label="Fermer">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
       <!-- ── CONTENT ── -->
       <main id="content">
-
-        <!-- ── VIEW: OVERVIEW ── -->
-        <section id="view-overview" class="view hidden">
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-label">Studios trouvés</div>
-              <div class="kpi-value" id="kpi-total">0</div>
-              <div class="kpi-delta" id="kpi-total-delta">—</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Emails envoyés</div>
-              <div class="kpi-value" id="kpi-sent">0</div>
-              <div class="kpi-delta" id="kpi-sent-delta">—</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Taux de réponse</div>
-              <div class="kpi-value" id="kpi-response">0%</div>
-              <div class="kpi-delta" id="kpi-response-delta">—</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Taux de succès</div>
-              <div class="kpi-value" id="kpi-success">0%</div>
-              <div class="kpi-delta" id="kpi-success-delta">—</div>
-            </div>
-          </div>
-          <div class="charts-row">
-            <div class="chart-card">
-              <h3 class="chart-title">Envois &amp; réponses (12 mois)</h3>
-              <div class="chart-wrapper"><canvas id="chart-timeline"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3 class="chart-title">Répartition par statut</h3>
-              <div class="chart-wrapper chart-wrapper--donut"><canvas id="chart-status"></canvas></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── VIEW: MONTHLY ── -->
-        <section id="view-monthly" class="view hidden">
-          <div class="section-header">
-            <label for="year-select" class="sr-only">Année</label>
-            <select id="year-select" class="select-input"></select>
-          </div>
-          <div class="charts-row">
-            <div class="chart-card">
-              <h3 class="chart-title">Studios trouvés par mois</h3>
-              <div class="chart-wrapper"><canvas id="chart-found"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3 class="chart-title">Emails envoyés par mois</h3>
-              <div class="chart-wrapper"><canvas id="chart-sent-monthly"></canvas></div>
-            </div>
-          </div>
-          <div class="table-card">
-            <div class="table-card-header">Récapitulatif mensuel</div>
-            <div class="table-scroll">
-              <table class="data-table" id="monthly-table">
-                <thead>
-                  <tr>
-                    <th>Mois</th>
-                    <th class="num">Trouvés</th>
-                    <th class="num">Envoyés</th>
-                    <th class="num">Réponses</th>
-                    <th class="num">Taux réponse</th>
-                  </tr>
-                </thead>
-                <tbody id="monthly-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── VIEW: FUNNEL ── -->
-        <section id="view-funnel" class="view hidden">
-          <div class="charts-row charts-row--funnel">
-            <div class="chart-card chart-card--tall">
-              <h3 class="chart-title">Funnel de conversion</h3>
-              <div id="funnel-bars" class="funnel-bars"></div>
-              <div id="funnel-insight" class="funnel-insight"></div>
-            </div>
-            <div class="chart-card">
-              <h3 class="chart-title">Distribution des résultats</h3>
-              <div class="chart-wrapper chart-wrapper--donut"><canvas id="chart-results"></canvas></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── VIEW: LIST ── -->
-        <section id="view-list" class="view hidden">
-          <div class="list-filters" id="list-filters">
-            <div id="status-chips" class="chips-row"></div>
-            <div class="search-row">
-              <div class="search-input-wrap">
-                <i data-lucide="search"></i>
-                <input type="text" id="search-input" placeholder="Rechercher un studio…" autocomplete="off">
-              </div>
-              <span id="studios-count" class="count-badge">0 studios</span>
-            </div>
-          </div>
-          <div class="table-card">
-            <div class="table-scroll" id="list-table-wrap">
-              <table class="data-table sortable-table" id="list-table">
-                <thead>
-                  <tr>
-                    <th class="sortable" data-col="name">Nom <span class="sort-icon"></span></th>
-                    <th class="sortable" data-col="status">Statut <span class="sort-icon"></span></th>
-                    <th class="sortable" data-col="dateTrouve">Date trouvé <span class="sort-icon"></span></th>
-                    <th class="sortable" data-col="dateEnvoi">Date envoi <span class="sort-icon"></span></th>
-                    <th class="sortable" data-col="reponse">Réponse <span class="sort-icon"></span></th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody id="list-tbody"></tbody>
-              </table>
-            </div>
-            <div id="list-cards" class="list-cards"></div>
-            <div id="list-empty" class="empty-state hidden">
-              <p>Aucun studio trouvé avec ces filtres.</p>
-            </div>
-          </div>
-          <nav class="pagination" id="list-pagination" aria-label="Pagination">
-            <button id="prev-page" class="btn btn-secondary" disabled>← Précédent</button>
-            <span id="page-info">Page 1 / 1</span>
-            <button id="next-page" class="btn btn-secondary" disabled>Suivant →</button>
-          </nav>
-        </section>
-
-        <!-- ── VIEW: SETTINGS ── -->
-        <section id="view-settings" class="view hidden">
-
-          <div class="settings-card">
-            <h3 class="settings-card-title">Connexion Notion</h3>
-            <div class="form-group">
-              <label for="s-token">Integration Token</label>
-              <div class="input-with-toggle">
-                <input type="password" id="s-token" placeholder="secret_…" autocomplete="off" spellcheck="false">
-                <button class="toggle-pw-btn" data-target="s-token" aria-label="Afficher/masquer le token">
-                  <i data-lucide="eye"></i>
-                </button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="s-db-id">Database ID</label>
-              <input type="text" id="s-db-id" placeholder="abc123def456ghi789…" spellcheck="false">
-            </div>
-            <div class="form-group">
-              <label for="s-proxy-url">URL du proxy CORS</label>
-              <input type="url" id="s-proxy-url" placeholder="https://xxx.workers.dev/notion">
-              <span class="helper-text">Laisse vide pour utiliser corsproxy.io (moins fiable)</span>
-            </div>
-            <div id="connection-status" class="connection-status" role="status" aria-live="polite"></div>
-            <div class="settings-actions">
-              <button id="test-connection" class="btn btn-secondary">Tester la connexion</button>
-              <button id="save-connection" class="btn btn-primary">Sauvegarder</button>
-            </div>
-          </div>
-
-          <div class="settings-card">
-            <h3 class="settings-card-title">Mapping des propriétés</h3>
-            <div class="form-group">
-              <label for="s-field-name">Champ Nom</label>
-              <input type="text" id="s-field-name" placeholder="Name">
-              <span class="helper-text">Nom exact tel qu'il apparaît dans Notion</span>
-            </div>
-            <div class="form-group">
-              <label for="s-field-status">Champ Statut</label>
-              <input type="text" id="s-field-status" placeholder="Status">
-              <span class="helper-text">Nom exact tel qu'il apparaît dans Notion</span>
-            </div>
-            <div class="form-group">
-              <label for="s-field-date-trouve">Champ Date trouvé</label>
-              <input type="text" id="s-field-date-trouve" placeholder="Date trouvé">
-              <span class="helper-text">Nom exact tel qu'il apparaît dans Notion</span>
-            </div>
-            <div class="form-group">
-              <label for="s-field-date-envoi">Champ Date envoi</label>
-              <input type="text" id="s-field-date-envoi" placeholder="Date envoi">
-              <span class="helper-text">Nom exact tel qu'il apparaît dans Notion</span>
-            </div>
-            <div class="form-group">
-              <label for="s-field-reponse">Champ Réponse</label>
-              <input type="text" id="s-field-reponse" placeholder="Réponse">
-              <span class="helper-text">Nom exact tel qu'il apparaît dans Notion</span>
-            </div>
-            <div class="form-group">
-              <label for="s-field-notes">Champ Notes</label>
-              <input type="text" id="s-field-notes" placeholder="Notes">
-              <span class="helper-text">Nom exact tel qu'il apparaît dans Notion</span>
-            </div>
-            <div class="settings-actions">
-              <button id="reset-fields" class="btn btn-secondary">Réinitialiser les valeurs par défaut</button>
-              <button id="save-fields" class="btn btn-primary">Sauvegarder</button>
-            </div>
-          </div>
-
-          <div class="settings-card">
-            <h3 class="settings-card-title">Cache &amp; Données</h3>
-            <p id="cache-info" class="cache-info">Dernière synchronisation : Jamais</p>
-            <div class="settings-actions">
-              <button id="force-sync" class="btn btn-secondary">Forcer la resynchronisation</button>
-              <button id="clear-cache" class="btn btn-secondary btn-danger">Vider le cache</button>
-            </div>
-          </div>
-
-          <div class="settings-card">
-            <h3 class="settings-card-title">À propos</h3>
-            <p class="about-text">Prospect Dashboard v1.0.0</p>
-            <p class="about-text text-muted">Dashboard de prospection cold email pour freelances 3D character artists</p>
-          </div>
-
-        </section>
-
+        <!-- All view content is injected dynamically by view modules -->
+        <section id="view-overview"  class="view hidden"></section>
+        <section id="view-monthly"   class="view hidden"></section>
+        <section id="view-funnel"    class="view hidden"></section>
+        <section id="view-list"      class="view hidden"></section>
+        <section id="view-settings"  class="view hidden"></section>
       </main>
     </div><!-- /main-wrapper -->
 
-    <!-- ─── BOTTOM NAV (mobile / tablet portrait) ─── -->
+    <!-- ─── BOTTOM NAV ─── -->
     <nav id="bottom-nav" aria-label="Navigation mobile">
       <a href="#overview"  class="bottom-nav-item" data-route="overview">
         <i data-lucide="layout-dashboard"></i><span>Overview</span>
@@ -352,16 +161,9 @@
     </div>
   </div>
 
-  <!-- ─── SCRIPTS ─── -->
+  <!-- ─── SCRIPTS (non-module, must load before app.js module) ─── -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
-  <script src="js/notion.js"></script>
-  <script src="js/router.js"></script>
-  <script src="js/views/overview.js"></script>
-  <script src="js/views/monthly.js"></script>
-  <script src="js/views/funnel.js"></script>
-  <script src="js/views/list.js"></script>
-  <script src="js/views/settings.js"></script>
-  <script src="js/app.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script type="module" src="assets/app.js"></script>
 </body>
 </html>
