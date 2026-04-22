@@ -164,15 +164,14 @@ export function render(studios) {
   const sentPm    = allSendsFlat.filter(d => d.startsWith(pm)).length;
   const totalSent = allSendsFlat.length;
 
-  const c1SentStudios = studios.filter(s => s.dateEnvoiC1);
-  const replied   = studios.filter(s => s.c1Repondu).length;
-  const c1Sent    = c1SentStudios.length;
-  const replyRate = c1Sent ? Math.round(replied / c1Sent * 100) : 0;
+  const contacted  = studios.filter(s => s.dateEnvoiC1 || s.dateEnvoiC2);
+  const replied    = studios.filter(s => s.c1Repondu || s.c2Repondu).length;
+  const replyRate  = contacted.length ? Math.round(replied / contacted.length * 100) : 0;
 
-  const c1SentTm  = c1SentStudios.filter(s => monthKey(s.dateEnvoiC1) === tm);
-  const c1SentPm  = c1SentStudios.filter(s => monthKey(s.dateEnvoiC1) === pm);
-  const rTm = c1SentTm.length ? Math.round(c1SentTm.filter(s => s.c1Repondu).length / c1SentTm.length * 100) : 0;
-  const rPm = c1SentPm.length ? Math.round(c1SentPm.filter(s => s.c1Repondu).length / c1SentPm.length * 100) : 0;
+  const contactedTm = contacted.filter(s => monthKey(s.dateEnvoiC1) === tm || monthKey(s.dateEnvoiC2) === tm);
+  const contactedPm = contacted.filter(s => monthKey(s.dateEnvoiC1) === pm || monthKey(s.dateEnvoiC2) === pm);
+  const rTm = contactedTm.length ? Math.round(contactedTm.filter(s => s.c1Repondu || s.c2Repondu).length / contactedTm.length * 100) : 0;
+  const rPm = contactedPm.length ? Math.round(contactedPm.filter(s => s.c1Repondu || s.c2Repondu).length / contactedPm.length * 100) : 0;
 
   const overdue = countOverdue(studios);
 
