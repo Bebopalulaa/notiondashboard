@@ -13,15 +13,25 @@ import { render as renderSettings, updateCacheInfo } from './views/settings.js';
 
 /* ── localStorage defaults ──────────────────────────────────────── */
 const DEFAULTS = {
-  notion_token:             '',
-  notion_db_id:             '',
-  notion_proxy_url:         '',
-  notion_field_name:        'Name',
-  notion_field_status:      'Status',
-  notion_field_date_trouve: 'Date trouvé',
-  notion_field_date_envoi:  'Date envoi',
-  notion_field_reponse:     'Réponse',
-  notion_field_notes:       'Notes',
+  notion_token:                 '',
+  notion_db_id:                 '',
+  notion_proxy_url:             '',
+  notion_field_name:            'Name',
+  notion_field_envoi_c1:        'Date envoi C1',
+  notion_field_rel_prev_c1_j3:  'Relance prévue C1 J+3',
+  notion_field_rel_eff_c1_j3:   'Relance effective C1 J+3',
+  notion_field_rel_prev_c1_j7:  'Relance prévue C1 J+7',
+  notion_field_rel_eff_c1_j7:   'Relance effective C1 J+7',
+  notion_field_rel_prev_c1_j14: 'Relance prévue C1 J+14',
+  notion_field_rel_eff_c1_j14:  'Relance effective C1 J+14',
+  notion_field_envoi_c2:        'Date envoi C2',
+  notion_field_rel_prev_c2_j3:  'Relance prévue C2 J+3',
+  notion_field_rel_eff_c2_j3:   'Relance effective C2 J+3',
+  notion_field_rel_prev_c2_j7:  'Relance prévue C2 J+7',
+  notion_field_rel_eff_c2_j7:   'Relance effective C2 J+7',
+  notion_field_rel_prev_c2_j14: 'Relance prévue C2 J+14',
+  notion_field_rel_eff_c2_j14:  'Relance effective C2 J+14',
+  notion_field_c1_repondu:      'Contact 1 répondu ?',
 };
 
 function initDefaults() {

@@ -1,49 +1,50 @@
 /**
- * View: List — filter chips, live search, sortable table, 25/page pagination,
- * detail drawer with swipe-to-dismiss.
+ * View: List — searchable sortable table with C1/C2 follow-up dots, detail drawer.
  */
 
 const PAGE_SIZE = 25;
 
-const KNOWN_STATUSES = ['Trouvé','Email envoyé','Réponse reçue','Positif','Négatif','En attente'];
-
 /* ── state ──────────────────────────────────────────────────────── */
-let _studios    = [];
-let _filtered   = [];
-let _page       = 1;
-let _sortCol    = 'name';
-let _sortDir    = 'asc';
-let _activeStats = new Set();
-let _search     = '';
-let _drawerInited = false;
+let _studios          = [];
+let _filtered         = [];
+let _page             = 1;
+let _sortCol          = 'name';
+let _sortDir          = 'asc';
+let _search           = '';
+let _drawerInited     = false;
+let _scaffoldInjected = false;
 
 /* ── helpers ────────────────────────────────────────────────────── */
-function statusCls(s) {
-  if (!s) return '';
-  return 'status-' + s.toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[éè]/g, 'e');
-}
-
-/** @param {string} s */
-function badge(s) {
-  return `<span class="status-badge ${statusCls(s)}">${s || '—'}</span>`;
-}
-
-/** @param {string|null} d */
 function fmtDate(d) {
   if (!d) return '—';
   const [y, m, day] = d.split('-');
   return `${day}/${m}/${y.slice(2)}`;
 }
 
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+/** Colored dot: green=sent, orange=planned, red=late, grey=none */
+function dot(prev, eff) {
+  if (eff)  return `<span class="rdot rdot--done" title="Envoyé le ${fmtDate(eff)}">●</span>`;
+  if (!prev) return `<span class="rdot rdot--none" title="Non planifié">○</span>`;
+  return prev < todayStr()
+    ? `<span class="rdot rdot--late" title="Retard — prévu le ${fmtDate(prev)}">●</span>`
+    : `<span class="rdot rdot--planned" title="Prévu le ${fmtDate(prev)}">●</span>`;
+}
+
+function dotsC(s, n) {
+  const c = `C${n}`;
+  return [
+    dot(s[`relPrev${c}J3`],  s[`relEff${c}J3`]),
+    dot(s[`relPrev${c}J7`],  s[`relEff${c}J7`]),
+    dot(s[`relPrev${c}J14`], s[`relEff${c}J14`]),
+  ].join('');
+}
+
 /* ── skeleton ───────────────────────────────────────────────────── */
 function renderSkeleton(section) {
   section.innerHTML = `
     <div class="list-filters">
-      <div class="chips-row">
-        ${Array(6).fill(0).map(() => `<span class="sk" style="width:${70 + Math.random()*40}px;height:32px;border-radius:20px;display:inline-block"></span>`).join('')}
-      </div>
       <div class="search-row">
         <span class="sk" style="flex:1;max-width:360px;height:40px;border-radius:6px;display:block"></span>
       </div>
@@ -51,12 +52,12 @@ function renderSkeleton(section) {
     <div class="table-card">
       ${Array(8).fill(0).map(() => `
         <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:center">
-          <span class="sk" style="flex:2;height:14px;border-radius:4px"></span>
-          <span class="sk" style="width:90px;height:20px;border-radius:20px"></span>
-          <span class="sk" style="width:60px;height:14px;border-radius:4px"></span>
-          <span class="sk" style="width:60px;height:14px;border-radius:4px"></span>
-          <span class="sk" style="width:24px;height:14px;border-radius:4px"></span>
           <span class="sk" style="flex:3;height:14px;border-radius:4px"></span>
+          <span class="sk" style="width:70px;height:14px;border-radius:4px"></span>
+          <span class="sk" style="width:60px;height:14px;border-radius:4px"></span>
+          <span class="sk" style="width:70px;height:14px;border-radius:4px"></span>
+          <span class="sk" style="width:60px;height:14px;border-radius:4px"></span>
+          <span class="sk" style="width:30px;height:14px;border-radius:4px"></span>
         </div>`).join('')}
     </div>`;
 }
@@ -64,16 +65,12 @@ function renderSkeleton(section) {
 /* ── filters ────────────────────────────────────────────────────── */
 function applyFilters() {
   const term = _search.toLowerCase();
-  _filtered = _studios.filter(s => {
-    const ms = _activeStats.size === 0 || _activeStats.has(s.status || '');
-    const mn = !term || (s.name || '').toLowerCase().includes(term);
-    return ms && mn;
-  });
+  _filtered  = _studios.filter(s => !term || (s.name || '').toLowerCase().includes(term));
 
   _filtered.sort((a, b) => {
     let av = a[_sortCol] ?? '';
     let bv = b[_sortCol] ?? '';
-    if (_sortCol === 'reponse') { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+    if (typeof av === 'boolean') { av = av ? 1 : 0; bv = bv ? 1 : 0; }
     const c = av < bv ? -1 : av > bv ? 1 : 0;
     return _sortDir === 'asc' ? c : -c;
   });
@@ -84,66 +81,61 @@ function applyFilters() {
 
 /* ── list render ────────────────────────────────────────────────── */
 function renderList() {
-  const start = (_page - 1) * PAGE_SIZE;
-  const slice = _filtered.slice(start, start + PAGE_SIZE);
+  const start  = (_page - 1) * PAGE_SIZE;
+  const slice  = _filtered.slice(start, start + PAGE_SIZE);
 
-  /* count */
   const countEl = document.getElementById('studios-count');
-  if (countEl) countEl.textContent = `${_filtered.length} studio${_filtered.length !== 1 ? 's' : ''} affiché${_filtered.length !== 1 ? 's' : ''}`;
+  if (countEl) countEl.textContent = `${_filtered.length} studio${_filtered.length !== 1 ? 's' : ''}`;
 
-  /* empty state */
   const empty  = document.getElementById('list-empty');
   const wrap   = document.getElementById('list-table-wrap');
   const cardEl = document.getElementById('list-cards');
   if (empty)  empty.classList.toggle('hidden', _filtered.length > 0);
-  if (wrap)   wrap.style.display  = _filtered.length ? '' : 'none';
+  if (wrap)   wrap.style.display   = _filtered.length ? '' : 'none';
   if (cardEl) cardEl.style.display = _filtered.length ? '' : 'none';
 
-  /* table rows */
   const tbody = document.getElementById('list-tbody');
   if (tbody) {
     tbody.innerHTML = slice.map(s => `
-      <tr data-id="${s.id}">
+      <tr data-id="${s.id}" style="cursor:pointer">
         <td><strong>${s.name || '—'}</strong></td>
-        <td>${badge(s.status)}</td>
-        <td>${fmtDate(s.dateTrouve)}</td>
-        <td>${fmtDate(s.dateEnvoi)}</td>
-        <td>${s.reponse
+        <td>${fmtDate(s.dateEnvoiC1)}</td>
+        <td class="dots-cell">${dotsC(s, 1)}</td>
+        <td>${fmtDate(s.dateEnvoiC2)}</td>
+        <td class="dots-cell">${dotsC(s, 2)}</td>
+        <td>${s.c1Repondu
           ? '<span style="color:var(--success)">✓</span>'
           : '<span style="color:var(--text-faint)">✗</span>'}</td>
-        <td class="notes-cell">${(s.notes || '').slice(0, 60)}${s.notes && s.notes.length > 60 ? '…' : ''}</td>
       </tr>`).join('');
 
-    tbody.querySelectorAll('tr[data-id]').forEach(row => {
+    tbody.querySelectorAll('tr[data-id]').forEach(row =>
       row.addEventListener('click', () => {
         const s = _studios.find(x => x.id === row.dataset.id);
         if (s) openDrawer(s);
-      });
-    });
+      })
+    );
   }
 
-  /* mobile cards */
   if (cardEl) {
     cardEl.innerHTML = slice.map(s => `
       <div class="prospect-card" data-id="${s.id}">
         <div class="prospect-card-name">${s.name || '—'}</div>
         <div class="prospect-card-meta">
-          ${badge(s.status)}
-          ${s.dateEnvoi ? `<span>${fmtDate(s.dateEnvoi)}</span>` : ''}
-          ${s.reponse ? '<span style="color:var(--success)">✓ Réponse</span>' : ''}
+          ${s.dateEnvoiC1 ? `<span>C1 ${fmtDate(s.dateEnvoiC1)}</span>` : ''}
+          ${s.dateEnvoiC2 ? `<span>C2 ${fmtDate(s.dateEnvoiC2)}</span>` : ''}
+          ${s.c1Repondu ? '<span style="color:var(--success)">✓ Réponse</span>' : ''}
         </div>
-        ${s.notes ? `<div class="notes-cell">${s.notes.slice(0, 60)}${s.notes.length > 60 ? '…' : ''}</div>` : ''}
+        <div class="prospect-card-dots">C1: ${dotsC(s, 1)} &nbsp; C2: ${dotsC(s, 2)}</div>
       </div>`).join('');
 
-    cardEl.querySelectorAll('.prospect-card[data-id]').forEach(card => {
+    cardEl.querySelectorAll('.prospect-card[data-id]').forEach(card =>
       card.addEventListener('click', () => {
         const s = _studios.find(x => x.id === card.dataset.id);
         if (s) openDrawer(s);
-      });
-    });
+      })
+    );
   }
 
-  /* sort icons */
   document.querySelectorAll('#list-table th.sortable').forEach(th => {
     const icon = th.querySelector('.sort-icon');
     if (!icon) return;
@@ -157,49 +149,53 @@ function renderList() {
     }
   });
 
-  /* pagination */
   const total = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE));
   const info  = document.getElementById('page-info');
   const prev  = document.getElementById('prev-page');
   const next  = document.getElementById('next-page');
-  if (info) info.textContent  = `Page ${_page} / ${total}`;
+  if (info) info.textContent = `Page ${_page} / ${total}`;
   if (prev) prev.disabled = _page <= 1;
   if (next) next.disabled = _page >= total;
 }
 
-/* ── chips ──────────────────────────────────────────────────────── */
-function buildChips() {
-  const all = [...new Set([...KNOWN_STATUSES, ..._studios.map(s => s.status || '').filter(Boolean)])];
-  const container = document.getElementById('status-chips');
-  if (!container) return;
-  container.innerHTML = all.map(s => `
-    <button class="chip${_activeStats.has(s) ? ' active' : ''}" data-status="${s}">${s}</button>`).join('');
-  container.querySelectorAll('.chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const st = chip.dataset.status;
-      _activeStats.has(st) ? _activeStats.delete(st) : _activeStats.add(st);
-      chip.classList.toggle('active', _activeStats.has(st));
-      applyFilters();
-    });
-  });
+/* ── drawer ─────────────────────────────────────────────────────── */
+function drawerRow(label, val) {
+  return `<div class="drawer-field">
+    <div class="drawer-field-label">${label}</div>
+    <div class="drawer-field-value">${val || '—'}</div>
+  </div>`;
 }
 
-/* ── drawer ─────────────────────────────────────────────────────── */
+function drawerRelance(label, prev, eff) {
+  const today = todayStr();
+  const val = eff
+    ? `<span style="color:var(--success)">✓ Envoyé le ${fmtDate(eff)}</span>`
+    : prev
+      ? (prev < today
+          ? `<span style="color:var(--danger)">⚠ Retard — prévu le ${fmtDate(prev)}</span>`
+          : `Prévu le ${fmtDate(prev)}`)
+      : '<span style="color:var(--text-faint)">Non planifié</span>';
+  return drawerRow(label, val);
+}
+
 function openDrawer(s) {
   document.getElementById('drawer-title').textContent = s.name || '—';
   document.getElementById('drawer-notion-link').href = `https://notion.so/${s.id}`;
 
-  document.getElementById('drawer-content').innerHTML = [
-    ['Statut',      badge(s.status), true],
-    ['Date trouvé', fmtDate(s.dateTrouve), false],
-    ['Date envoi',  fmtDate(s.dateEnvoi), false],
-    ['Réponse',     s.reponse ? '<span style="color:var(--success)">✓ Oui</span>' : '<span style="color:var(--text-faint)">✗ Non</span>', true],
-    ['Notes',       s.notes ? s.notes : '<span class="empty">Aucune note</span>', true],
-  ].map(([label, val, raw]) => `
-    <div class="drawer-field">
-      <div class="drawer-field-label">${label}</div>
-      <div class="drawer-field-value">${raw ? val : (val || '—')}</div>
-    </div>`).join('');
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="drawer-section-title">Contact 1</div>
+    ${drawerRow('Envoi J+0', fmtDate(s.dateEnvoiC1))}
+    ${drawerRelance('Relance J+3',  s.relPrevC1J3,  s.relEffC1J3)}
+    ${drawerRelance('Relance J+7',  s.relPrevC1J7,  s.relEffC1J7)}
+    ${drawerRelance('Relance J+14', s.relPrevC1J14, s.relEffC1J14)}
+    ${drawerRow('Répondu ?', s.c1Repondu
+      ? '<span style="color:var(--success)">✓ Oui</span>'
+      : '<span style="color:var(--text-faint)">✗ Non</span>')}
+    <div class="drawer-section-title" style="margin-top:16px">Contact 2</div>
+    ${drawerRow('Envoi J+0', fmtDate(s.dateEnvoiC2))}
+    ${drawerRelance('Relance J+3',  s.relPrevC2J3,  s.relEffC2J3)}
+    ${drawerRelance('Relance J+7',  s.relPrevC2J7,  s.relEffC2J7)}
+    ${drawerRelance('Relance J+14', s.relPrevC2J14, s.relEffC2J14)}`;
 
   document.getElementById('drawer').classList.remove('hidden');
   document.getElementById('drawer-overlay').classList.remove('hidden');
@@ -215,13 +211,11 @@ function closeDrawer() {
 function initDrawer() {
   if (_drawerInited) return;
   _drawerInited = true;
-
-  ['drawer-close','drawer-close-btn'].forEach(id =>
+  ['drawer-close', 'drawer-close-btn'].forEach(id =>
     document.getElementById(id)?.addEventListener('click', closeDrawer));
   document.getElementById('drawer-overlay')?.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', e => e.key === 'Escape' && closeDrawer());
 
-  /* swipe to dismiss */
   const drawer = document.getElementById('drawer');
   let tx = 0, ty = 0;
   drawer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
@@ -233,12 +227,11 @@ function initDrawer() {
   }, { passive: true });
 }
 
-/* ── full view scaffold (only injected once) ────────────────────── */
+/* ── scaffold (injected once) ───────────────────────────────────── */
 function injectScaffold() {
   const section = document.getElementById('view-list');
   section.innerHTML = `
     <div class="list-filters" id="list-filters">
-      <div id="status-chips" class="chips-row"></div>
       <div class="search-row">
         <div class="search-input-wrap">
           <i data-lucide="search"></i>
@@ -252,22 +245,22 @@ function injectScaffold() {
         <table class="data-table sortable-table" id="list-table">
           <thead>
             <tr>
-              <th class="sortable" data-col="name">Nom <span class="sort-icon">↕</span></th>
-              <th class="sortable" data-col="status">Statut <span class="sort-icon">↕</span></th>
-              <th class="sortable" data-col="dateTrouve">Date trouvé <span class="sort-icon">↕</span></th>
-              <th class="sortable" data-col="dateEnvoi">Date envoi <span class="sort-icon">↕</span></th>
-              <th class="sortable" data-col="reponse">Réponse <span class="sort-icon">↕</span></th>
-              <th>Notes</th>
+              <th class="sortable" data-col="name">Studio <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-col="dateEnvoiC1">C1 Envoi <span class="sort-icon">↕</span></th>
+              <th title="J+3 / J+7 / J+14">C1 Relances</th>
+              <th class="sortable" data-col="dateEnvoiC2">C2 Envoi <span class="sort-icon">↕</span></th>
+              <th title="J+3 / J+7 / J+14">C2 Relances</th>
+              <th class="sortable" data-col="c1Repondu">Réponse <span class="sort-icon">↕</span></th>
             </tr>
           </thead>
           <tbody id="list-tbody"></tbody>
         </table>
       </div>
-      <div id="list-cards" class="list-cards"></div>
+      <div id="list-cards" class="list-cards" style="display:none"></div>
       <div id="list-empty" class="empty-state hidden">
         <div class="empty-state-icon">🔍</div>
         <h3>Aucun résultat</h3>
-        <p>Aucun studio ne correspond à tes filtres.</p>
+        <p>Aucun studio ne correspond à ta recherche.</p>
       </div>
     </div>
     <nav class="pagination" id="list-pagination">
@@ -278,7 +271,6 @@ function injectScaffold() {
 
   if (window.lucide) lucide.createIcons();
 
-  /* sort headers */
   document.querySelectorAll('#list-table th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       _sortDir = th.dataset.col === _sortCol ? (_sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
@@ -287,13 +279,11 @@ function injectScaffold() {
     });
   });
 
-  /* pagination */
   document.getElementById('prev-page').addEventListener('click', () => { if (_page > 1) { _page--; renderList(); } });
   document.getElementById('next-page').addEventListener('click', () => {
     if (_page < Math.ceil(_filtered.length / PAGE_SIZE)) { _page++; renderList(); }
   });
 
-  /* search */
   let timer;
   document.getElementById('search-input').addEventListener('input', e => {
     clearTimeout(timer);
@@ -301,11 +291,9 @@ function injectScaffold() {
   });
 }
 
-let _scaffoldInjected = false;
-
 /**
  * Render the list view.
- * @param {import('../notion.js').Studio[]|null} studios - null triggers skeleton
+ * @param {import('../notion.js').Studio[]|null} studios
  */
 export function render(studios) {
   const section = document.getElementById('view-list');
@@ -325,15 +313,13 @@ export function render(studios) {
     return;
   }
 
-  /* Inject scaffold once; on subsequent renders just update data */
   if (!_scaffoldInjected) {
     injectScaffold();
     initDrawer();
     _scaffoldInjected = true;
   }
 
-  _studios = studios;
+  _studios  = studios;
   _filtered = [...studios];
-  buildChips();
   applyFilters();
 }

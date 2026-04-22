@@ -806,6 +806,82 @@ th.sort-asc .sort-icon, th.sort-desc .sort-icon { color: var(--accent); }
   .onboarding-logo h1 { font-size: 22px; }
 }
 
+/* ═══════════════════════════════════════════════════════════ RELANCES VIEW */
+.relances-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  transition: border-color var(--t);
+}
+.relances-section--danger { border-color: rgba(248,113,113,.4); }
+
+.relances-section-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+}
+.relances-section-header h3 {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 8px;
+}
+.relances-section-icon { font-size: 16px; line-height: 1; }
+.relances-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  background: var(--surface-2); border-radius: 20px;
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+}
+.relances-empty {
+  font-size: 14px; color: var(--text-faint); padding: 8px 0;
+  font-style: italic;
+}
+
+.relance-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.relance-badge--late    { background: rgba(248,113,113,.15); color: #f87171; }
+.relance-badge--today   { background: rgba(245,158,11,.15);  color: #f59e0b; }
+.relance-badge--soon    { background: rgba(91,138,245,.15);  color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════ FOLLOW-UP DOTS */
+.rdot { font-size: 11px; line-height: 1; cursor: default; }
+.rdot--done    { color: var(--success); }
+.rdot--late    { color: #f87171; }
+.rdot--planned { color: #f59e0b; }
+.rdot--none    { color: var(--text-faint); }
+.dots-cell     { letter-spacing: 3px; white-space: nowrap; }
+
+/* ═══════════════════════════════════════════════════════════ KPI VARIANTS */
+.kpi-card--danger .kpi-value { color: #f87171; }
+
+/* ═══════════════════════════════════════════════════════════ SETTINGS EXTRAS */
+.settings-card-desc {
+  font-size: 13px; color: var(--text-muted); margin-bottom: 20px;
+  line-height: 1.6;
+}
+.settings-subsection-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+  margin: 22px 0 12px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════════════ DRAWER SECTION */
+.drawer-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 12px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════════════ CHART TALL */
+.chart-wrapper--tall { height: 280px; }
+
+/* ═══════════════════════════════════════════════════════════ MOBILE CARD EXTRAS */
+.prospect-card-dots { font-size: 12px; margin-top: 6px; color: var(--text-muted); letter-spacing: 4px; }
+
 /* ═══════════════════════════════════════════════════════════ REDUCED MOTION */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

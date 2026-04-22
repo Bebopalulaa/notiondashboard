@@ -9,17 +9,40 @@ const DEBUG = false;
 export const cache = { studios: [], fetchedAt: null };
 
 const NOTION_VERSION = '2022-06-28';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 
-/** @typedef {{ id:string, name:string, status:string, dateTrouve:string|null, dateEnvoi:string|null, reponse:boolean, notes:string }} Studio */
+/**
+ * @typedef {{
+ *   id: string, name: string,
+ *   dateEnvoiC1: string|null,
+ *   relPrevC1J3: string|null, relEffC1J3: string|null,
+ *   relPrevC1J7: string|null, relEffC1J7: string|null,
+ *   relPrevC1J14: string|null, relEffC1J14: string|null,
+ *   dateEnvoiC2: string|null,
+ *   relPrevC2J3: string|null, relEffC2J3: string|null,
+ *   relPrevC2J7: string|null, relEffC2J7: string|null,
+ *   relPrevC2J14: string|null, relEffC2J14: string|null,
+ *   c1Repondu: boolean
+ * }} Studio
+ */
 
 const FIELD_DEFAULTS = {
-  notion_field_name:        'Name',
-  notion_field_status:      'Status',
-  notion_field_date_trouve: 'Date trouvé',
-  notion_field_date_envoi:  'Date envoi',
-  notion_field_reponse:     'Réponse',
-  notion_field_notes:       'Notes',
+  notion_field_name:            'Name',
+  notion_field_envoi_c1:        'Date envoi C1',
+  notion_field_rel_prev_c1_j3:  'Relance prévue C1 J+3',
+  notion_field_rel_eff_c1_j3:   'Relance effective C1 J+3',
+  notion_field_rel_prev_c1_j7:  'Relance prévue C1 J+7',
+  notion_field_rel_eff_c1_j7:   'Relance effective C1 J+7',
+  notion_field_rel_prev_c1_j14: 'Relance prévue C1 J+14',
+  notion_field_rel_eff_c1_j14:  'Relance effective C1 J+14',
+  notion_field_envoi_c2:        'Date envoi C2',
+  notion_field_rel_prev_c2_j3:  'Relance prévue C2 J+3',
+  notion_field_rel_eff_c2_j3:   'Relance effective C2 J+3',
+  notion_field_rel_prev_c2_j7:  'Relance prévue C2 J+7',
+  notion_field_rel_eff_c2_j7:   'Relance effective C2 J+7',
+  notion_field_rel_prev_c2_j14: 'Relance prévue C2 J+14',
+  notion_field_rel_eff_c2_j14:  'Relance effective C2 J+14',
+  notion_field_c1_repondu:      'Contact 1 répondu ?',
 };
 
 /** @param {string} key */
@@ -30,7 +53,6 @@ function lsField(key) { return ls(key) || FIELD_DEFAULTS[key] || ''; }
 
 /**
  * Build the proxied URL for a Notion API path.
- * Uses the configured Cloudflare Worker or falls back to corsproxy.io.
  * @param {string} path - e.g. "/databases/{id}/query"
  * @returns {string}
  */
@@ -80,7 +102,7 @@ export async function notionFetch(path, options = {}) {
 
 /**
  * Fetch all pages from the Notion database, handling pagination automatically.
- * @returns {Promise<object[]>} Raw Notion page objects
+ * @returns {Promise<object[]>}
  */
 async function fetchAllPages() {
   const dbId = ls('notion_db_id');
@@ -109,34 +131,42 @@ async function fetchAllPages() {
 }
 
 /* ── Property extractors ───────────────────────────────────────── */
-const getTitle    = p => p?.title?.[0]?.plain_text     || '';
-const getSelect   = p => p?.select?.name               || '';
-const getDate     = p => p?.date?.start                || null;
+const getTitle    = p => p?.title?.[0]?.plain_text  || '';
+const getDate     = p => p?.date?.start             || null;
 const getCheckbox = p => p?.checkbox === true;
-const getRichText = p => (p?.rich_text || []).map(t => t.plain_text).join('') || '';
 
 /**
  * Normalize a raw Notion page object into a Studio record.
- * Uses field-name mappings from localStorage.
- * @param {object} page - Raw Notion API page object
+ * @param {object} page
  * @returns {Studio}
  */
 export function normalizeStudio(page) {
   const props = page.properties;
+  const f = key => props[lsField(key)];
   return {
-    id:         page.id.replace(/-/g, ''),
-    name:       getTitle(props[lsField('notion_field_name')]),
-    status:     getSelect(props[lsField('notion_field_status')]),
-    dateTrouve: getDate(props[lsField('notion_field_date_trouve')]),
-    dateEnvoi:  getDate(props[lsField('notion_field_date_envoi')]),
-    reponse:    getCheckbox(props[lsField('notion_field_reponse')]),
-    notes:      getRichText(props[lsField('notion_field_notes')]),
+    id:            page.id.replace(/-/g, ''),
+    name:          getTitle(f('notion_field_name')),
+    dateEnvoiC1:   getDate(f('notion_field_envoi_c1')),
+    relPrevC1J3:   getDate(f('notion_field_rel_prev_c1_j3')),
+    relEffC1J3:    getDate(f('notion_field_rel_eff_c1_j3')),
+    relPrevC1J7:   getDate(f('notion_field_rel_prev_c1_j7')),
+    relEffC1J7:    getDate(f('notion_field_rel_eff_c1_j7')),
+    relPrevC1J14:  getDate(f('notion_field_rel_prev_c1_j14')),
+    relEffC1J14:   getDate(f('notion_field_rel_eff_c1_j14')),
+    dateEnvoiC2:   getDate(f('notion_field_envoi_c2')),
+    relPrevC2J3:   getDate(f('notion_field_rel_prev_c2_j3')),
+    relEffC2J3:    getDate(f('notion_field_rel_eff_c2_j3')),
+    relPrevC2J7:   getDate(f('notion_field_rel_prev_c2_j7')),
+    relEffC2J7:    getDate(f('notion_field_rel_eff_c2_j7')),
+    relPrevC2J14:  getDate(f('notion_field_rel_prev_c2_j14')),
+    relEffC2J14:   getDate(f('notion_field_rel_eff_c2_j14')),
+    c1Repondu:     getCheckbox(f('notion_field_c1_repondu')),
   };
 }
 
 /**
  * Fetch and cache studio data. Returns cached data if still fresh (< 5 min).
- * @param {boolean} [force=false] - Bypass cache and force a fresh fetch
+ * @param {boolean} [force=false]
  * @returns {Promise<Studio[]>}
  */
 export async function refreshData(force = false) {

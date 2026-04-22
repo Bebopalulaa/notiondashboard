@@ -1,5 +1,5 @@
 /**
- * View: Monthly activity — year selector, bar charts, summary table.
+ * View: Monthly activity — stacked bar chart + summary table by month.
  */
 
 import { initChart, PALETTE, tooltipConfig, scalesConfig } from '../charts.js';
@@ -10,108 +10,49 @@ const MONTHS_LONG  = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet'
 /* ── skeleton ───────────────────────────────────────────────────── */
 function renderSkeleton(section) {
   section.innerHTML = `
-    <div class="section-header">
-      <span class="sk" style="width:120px;height:40px;border-radius:6px;display:block"></span>
-    </div>
-    <div class="charts-row">
-      ${Array(2).fill(0).map(() => `
-        <div class="chart-card">
-          <span class="sk" style="width:50%;height:12px;margin-bottom:18px;display:block"></span>
-          <span class="sk" style="height:240px;border-radius:10px;display:block"></span>
-        </div>`).join('')}
+    <div class="chart-card" style="margin-bottom:24px">
+      <span class="sk" style="width:50%;height:12px;margin-bottom:18px;display:block"></span>
+      <span class="sk" style="height:280px;border-radius:10px;display:block"></span>
     </div>
     <div class="table-card">
-      <div class="table-card-header" style="border-bottom:1px solid var(--border);padding:14px 20px">
-        <span class="sk" style="width:35%;height:12px;display:inline-block"></span>
-      </div>
-      ${Array(6).fill(0).map(() => `
+      ${Array(7).fill(0).map(() => `
         <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:16px">
-          ${Array(5).fill(0).map((_, i) => `<span class="sk" style="height:14px;flex:${i===0?2:1}"></span>`).join('')}
+          ${Array(6).fill(0).map((_, i) => `<span class="sk" style="height:14px;flex:${i===0?2:1}"></span>`).join('')}
         </div>`).join('')}
     </div>`;
 }
 
 /* ── helpers ────────────────────────────────────────────────────── */
-/**
- * Extract unique years from studio data.
- * @param {import('../notion.js').Studio[]} studios
- * @returns {string[]} Sorted descending
- */
-function extractYears(studios) {
-  const ys = new Set();
-  studios.forEach(s => {
-    if (s.dateTrouve) ys.add(s.dateTrouve.slice(0, 4));
-    if (s.dateEnvoi)  ys.add(s.dateEnvoi.slice(0, 4));
+function monthKey(ds) { return ds ? ds.slice(0, 7) : null; }
+
+function last12months() {
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 11 + i);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
-  return [...ys].sort((a, b) => b - a);
 }
 
-function buildBarConfig(label, data, color) {
-  const sc = scalesConfig();
+function ymLabel(s) {
+  const [y, m] = s.split('-');
+  return new Date(+y, +m - 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+}
+
+function computeMonth(studios, ym) {
   return {
-    type: 'bar',
-    data: {
-      labels: MONTHS_SHORT,
-      datasets: [{
-        label,
-        data,
-        backgroundColor: color + 'b3',
-        borderColor: color,
-        borderWidth: 1,
-        borderRadius: 4,
-        borderSkipped: false,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: tooltipConfig() },
-      scales: sc,
-    },
+    j0:    studios.filter(s => monthKey(s.dateEnvoiC1) === ym || monthKey(s.dateEnvoiC2) === ym).length,
+    j3:    studios.filter(s => monthKey(s.relEffC1J3) === ym || monthKey(s.relEffC2J3) === ym).length,
+    j7:    studios.filter(s => monthKey(s.relEffC1J7) === ym || monthKey(s.relEffC2J7) === ym).length,
+    j14:   studios.filter(s => monthKey(s.relEffC1J14) === ym || monthKey(s.relEffC2J14) === ym).length,
+    repus: studios.filter(s => s.c1Repondu && monthKey(s.dateEnvoiC1) === ym).length,
+    c1sent: studios.filter(s => monthKey(s.dateEnvoiC1) === ym).length,
   };
-}
-
-function renderCharts(studios, year) {
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const ym = `${year}-${String(i + 1).padStart(2, '0')}`;
-    return {
-      found: studios.filter(s => s.dateTrouve?.startsWith(ym)).length,
-      sent:  studios.filter(s => s.dateEnvoi?.startsWith(ym)).length,
-      resp:  studios.filter(s => s.reponse && s.dateEnvoi?.startsWith(ym)).length,
-    };
-  });
-
-  initChart('chart-found', buildBarConfig('Studios trouvés', months.map(m => m.found), PALETTE[0]));
-  initChart('chart-sent-m', buildBarConfig('Emails envoyés',  months.map(m => m.sent),  PALETTE[1]));
-
-  /* Table */
-  const tbody = document.getElementById('monthly-tbody');
-  if (!tbody) return;
-
-  const rows = months
-    .map((d, i) => ({ ...d, i }))
-    .filter(d => d.found || d.sent || d.resp)
-    .reverse();
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state" style="padding:32px;text-align:center;color:var(--text-muted)">Aucune donnée pour ${year}</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = rows.map(d => {
-    const rate = d.sent ? Math.round(d.resp / d.sent * 100) : 0;
-    return `<tr>
-      <td>${MONTHS_LONG[d.i]} ${year}</td>
-      <td class="num">${d.found}</td>
-      <td class="num">${d.sent}</td>
-      <td class="num">${d.resp}</td>
-      <td class="num">${d.sent ? rate + '%' : '—'}</td>
-    </tr>`;
-  }).join('');
 }
 
 /**
  * Render the monthly activity view.
- * @param {import('../notion.js').Studio[]|null} studios - null triggers skeleton
+ * @param {import('../notion.js').Studio[]|null} studios
  */
 export function render(studios) {
   const section = document.getElementById('view-monthly');
@@ -119,9 +60,7 @@ export function render(studios) {
 
   if (studios === null) { renderSkeleton(section); return; }
 
-  const years = extractYears(studios);
-
-  if (!studios.length || !years.length) {
+  if (!studios.length) {
     section.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">📅</div>
@@ -132,20 +71,9 @@ export function render(studios) {
   }
 
   section.innerHTML = `
-    <div class="section-header">
-      <select id="year-select" class="select-input">
-        ${years.map(y => `<option value="${y}">${y}</option>`).join('')}
-      </select>
-    </div>
-    <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-title">Studios trouvés par mois</div>
-        <div class="chart-wrapper"><canvas id="chart-found"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Emails envoyés par mois</div>
-        <div class="chart-wrapper"><canvas id="chart-sent-m"></canvas></div>
-      </div>
+    <div class="chart-card" style="margin-bottom:24px">
+      <div class="chart-title">Envois par mois et par type — 12 derniers mois</div>
+      <div class="chart-wrapper chart-wrapper--tall"><canvas id="chart-monthly-bar"></canvas></div>
     </div>
     <div class="table-card">
       <div class="table-card-header">Récapitulatif mensuel</div>
@@ -154,10 +82,13 @@ export function render(studios) {
           <thead>
             <tr>
               <th>Mois</th>
-              <th class="num">Trouvés</th>
-              <th class="num">Envoyés</th>
+              <th class="num">J+0</th>
+              <th class="num">Rel. J+3</th>
+              <th class="num">Rel. J+7</th>
+              <th class="num">Rel. J+14</th>
+              <th class="num">Total</th>
               <th class="num">Réponses</th>
-              <th class="num">Taux réponse</th>
+              <th class="num">Taux</th>
             </tr>
           </thead>
           <tbody id="monthly-tbody"></tbody>
@@ -165,7 +96,58 @@ export function render(studios) {
       </div>
     </div>`;
 
-  const sel = document.getElementById('year-select');
-  renderCharts(studios, sel.value);
-  sel.addEventListener('change', () => renderCharts(studios, sel.value));
+  const months = last12months();
+  const data   = months.map(m => ({ ym: m, ...computeMonth(studios, m) }));
+
+  /* ── Stacked bar chart ── */
+  initChart('chart-monthly-bar', {
+    type: 'bar',
+    data: {
+      labels: months.map(ymLabel),
+      datasets: [
+        { label: 'J+0',       data: data.map(d => d.j0),  backgroundColor: PALETTE[0] + 'cc', borderColor: PALETTE[0], borderWidth: 1, borderRadius: 3 },
+        { label: 'Relance J+3',  data: data.map(d => d.j3),  backgroundColor: PALETTE[1] + 'cc', borderColor: PALETTE[1], borderWidth: 1 },
+        { label: 'Relance J+7',  data: data.map(d => d.j7),  backgroundColor: PALETTE[2] + 'cc', borderColor: PALETTE[2], borderWidth: 1 },
+        { label: 'Relance J+14', data: data.map(d => d.j14), backgroundColor: PALETTE[3] + 'cc', borderColor: PALETTE[3], borderWidth: 1 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8b8b9e', font: { size: 12 }, boxWidth: 12, padding: 16 } },
+        tooltip: tooltipConfig(),
+      },
+      scales: {
+        ...scalesConfig(),
+        x: { ...scalesConfig().x, stacked: true },
+        y: { ...scalesConfig().y, stacked: true },
+      },
+    },
+  });
+
+  /* ── Table ── */
+  const tbody = document.getElementById('monthly-tbody');
+  const rows  = data.filter(d => d.j0 || d.j3 || d.j7 || d.j14).reverse();
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">Aucun envoi sur les 12 derniers mois</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(d => {
+    const total = d.j0 + d.j3 + d.j7 + d.j14;
+    const rate  = d.c1sent ? Math.round(d.repus / d.c1sent * 100) : null;
+    const [y, m] = d.ym.split('-');
+    return `<tr>
+      <td>${MONTHS_LONG[+m - 1]} ${y}</td>
+      <td class="num">${d.j0  || '—'}</td>
+      <td class="num">${d.j3  || '—'}</td>
+      <td class="num">${d.j7  || '—'}</td>
+      <td class="num">${d.j14 || '—'}</td>
+      <td class="num"><strong>${total}</strong></td>
+      <td class="num">${d.repus || '—'}</td>
+      <td class="num">${rate !== null ? rate + '%' : '—'}</td>
+    </tr>`;
+  }).join('');
 }

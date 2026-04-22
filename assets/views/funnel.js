@@ -1,39 +1,95 @@
 /**
- * View: Funnel — animated horizontal bars, auto-generated insight text,
- * results distribution donut chart.
+ * View: Relances — overdue follow-ups and upcoming planned sends.
  */
-
-import { initChart, tooltipConfig } from '../charts.js';
 
 /* ── skeleton ───────────────────────────────────────────────────── */
 function renderSkeleton(section) {
   section.innerHTML = `
-    <div class="charts-row charts-row--funnel">
-      <div class="chart-card chart-card--tall">
-        <span class="sk" style="width:45%;height:12px;margin-bottom:24px;display:block"></span>
-        ${Array(4).fill(0).map((_, i) => `
-          <div style="margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-              <span class="sk" style="width:${30 + i * 12}%;height:13px;display:block"></span>
-              <span class="sk" style="width:80px;height:13px;display:block"></span>
-            </div>
-            <span class="sk" style="height:30px;border-radius:6px;display:block"></span>
-          </div>`).join('')}
-        <span class="sk" style="height:60px;border-radius:8px;margin-top:8px;display:block"></span>
-      </div>
-      <div class="chart-card">
-        <span class="sk" style="width:55%;height:12px;margin-bottom:18px;display:block"></span>
-        <span class="sk" style="height:240px;border-radius:50%;width:240px;margin:0 auto;display:block"></span>
-      </div>
+    <div class="chart-card" style="margin-bottom:24px">
+      <span class="sk" style="width:40%;height:14px;margin-bottom:20px;display:block"></span>
+      ${Array(4).fill(0).map(() => `
+        <div style="display:flex;gap:16px;margin-bottom:12px">
+          <span class="sk" style="flex:3;height:14px"></span>
+          <span class="sk" style="flex:2;height:14px"></span>
+          <span class="sk" style="width:80px;height:14px"></span>
+        </div>`).join('')}
+    </div>
+    <div class="chart-card">
+      <span class="sk" style="width:50%;height:14px;margin-bottom:20px;display:block"></span>
+      ${Array(5).fill(0).map(() => `
+        <div style="display:flex;gap:16px;margin-bottom:12px">
+          <span class="sk" style="flex:3;height:14px"></span>
+          <span class="sk" style="flex:2;height:14px"></span>
+          <span class="sk" style="width:80px;height:14px"></span>
+        </div>`).join('')}
     </div>`;
 }
 
 /* ── helpers ────────────────────────────────────────────────────── */
-function pct(n, d) { return d ? Math.round(n / d * 100) : 0; }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y, mo, day] = d.split('-');
+  return `${day}/${mo}/${y.slice(2)}`;
+}
+
+function daysDiff(from, to) {
+  return Math.round((new Date(to) - new Date(from)) / 86400000);
+}
+
+/** Returns all planned-but-not-sent actions for a studio. */
+function pendingActions(s) {
+  return [
+    { label: 'Relance C1 J+3',  prev: s.relPrevC1J3,  eff: s.relEffC1J3 },
+    { label: 'Relance C1 J+7',  prev: s.relPrevC1J7,  eff: s.relEffC1J7 },
+    { label: 'Relance C1 J+14', prev: s.relPrevC1J14, eff: s.relEffC1J14 },
+    { label: 'Relance C2 J+3',  prev: s.relPrevC2J3,  eff: s.relEffC2J3 },
+    { label: 'Relance C2 J+7',  prev: s.relPrevC2J7,  eff: s.relEffC2J7 },
+    { label: 'Relance C2 J+14', prev: s.relPrevC2J14, eff: s.relEffC2J14 },
+  ]
+    .filter(a => a.prev && !a.eff)
+    .map(a => ({ label: a.label, date: a.prev, studio: s.name, id: s.id }));
+}
+
+function actionRow(a, today) {
+  const late = a.date < today;
+  const diff = daysDiff(late ? a.date : today, late ? today : a.date);
+  const badge = late
+    ? `<span class="relance-badge relance-badge--late">${diff}j de retard</span>`
+    : diff === 0
+      ? `<span class="relance-badge relance-badge--today">Aujourd'hui</span>`
+      : `<span class="relance-badge relance-badge--soon">Dans ${diff}j</span>`;
+  return `<tr>
+    <td><strong>${a.studio || '—'}</strong></td>
+    <td>${a.label}</td>
+    <td>${fmtDate(a.date)}</td>
+    <td>${badge}</td>
+  </tr>`;
+}
+
+function actionsTable(actions, today) {
+  if (!actions.length) return '<p class="relances-empty">Aucune relance dans cette catégorie.</p>';
+  return `
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th>Studio</th><th>Action</th><th>Date prévue</th><th>Statut</th>
+        </tr></thead>
+        <tbody>${actions.map(a => actionRow(a, today)).join('')}</tbody>
+      </table>
+    </div>`;
+}
 
 /**
- * Render the funnel view.
- * @param {import('../notion.js').Studio[]|null} studios - null triggers skeleton
+ * Render the relances view.
+ * @param {import('../notion.js').Studio[]|null} studios
  */
 export function render(studios) {
   const section = document.getElementById('view-funnel');
@@ -44,115 +100,44 @@ export function render(studios) {
   if (!studios.length) {
     section.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">🔽</div>
-        <h3>Funnel vide</h3>
-        <p>Ajoute des studios dans Notion et actualise pour voir ton funnel de conversion.</p>
+        <div class="empty-state-icon">📬</div>
+        <h3>Aucun studio</h3>
+        <p>Ajoute des studios dans Notion et planifie tes relances.</p>
       </div>`;
     return;
   }
 
-  const total    = studios.length;
-  const sent     = studios.filter(s => s.dateEnvoi).length;
-  const replied  = studios.filter(s => s.reponse).length;
-  const positive = studios.filter(s => s.status === 'Positif').length;
+  const today   = todayStr();
+  const in14    = addDays(today, 14);
 
-  const steps = [
-    { label: 'Studios trouvés',  value: total,    cls: 's0' },
-    { label: 'Emails envoyés',   value: sent,     cls: 's1' },
-    { label: 'Réponses reçues',  value: replied,  cls: 's2' },
-    { label: 'Positifs',         value: positive, cls: 's3' },
-  ];
-
-  /* Insight text */
-  const rRate = sent ? (replied / sent * 100).toFixed(1) : 0;
-  const benchText = Number(rRate) < 3
-    ? 'en dessous de la moyenne cold email (3–5%) — travaille ton objet ou ton pitch'
-    : Number(rRate) <= 5
-      ? 'dans la moyenne cold email (3–5%) 👌'
-      : 'au-dessus de la moyenne cold email (3–5%) — excellent résultat ! 🎉';
-
-  const insightHtml = sent > 0
-    ? `Ton taux de réponse est de <strong>${rRate}%</strong>, ${benchText}. Sur <strong>${sent}</strong>
-       email${sent > 1 ? 's' : ''} envoyé${sent > 1 ? 's' : ''},
-       <strong>${replied}</strong> réponse${replied > 1 ? 's' : ''} et
-       <strong>${positive}</strong> résultat${positive > 1 ? 's' : ''} positif${positive > 1 ? 's' : ''}.`
-    : `<strong>${total}</strong> studio${total > 1 ? 's' : ''} trouvé${total > 1 ? 's' : ''}.
-       Commence à envoyer des emails pour voir le funnel se remplir.`;
-
-  /* Funnel bars HTML */
-  const barsHtml = steps.map((s, i) => {
-    const prev     = steps[i - 1];
-    const convPct  = prev && prev.value ? pct(s.value, prev.value) : 100;
-    const widthPct = total ? Math.max(pct(s.value, total), 0) : 0;
-    const meta     = i === 0
-      ? `${s.value} · 100%`
-      : `${s.value} · ${convPct}% de l'étape préc.`;
-
-    return `
-      <div class="funnel-bar-row">
-        <div class="funnel-bar-label">
-          <strong>${s.label}</strong>
-          <span class="funnel-meta">${meta}</span>
-        </div>
-        <div class="funnel-bar-track">
-          <div class="funnel-bar-fill ${s.cls}" style="width:0%" data-w="${widthPct}">
-            ${s.value}
-          </div>
-        </div>
-      </div>`;
-  }).join('');
+  const all      = studios.flatMap(pendingActions);
+  const overdue  = all.filter(a => a.date < today).sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = all.filter(a => a.date >= today && a.date <= in14).sort((a, b) => a.date.localeCompare(b.date));
+  const later    = all.filter(a => a.date > in14).sort((a, b) => a.date.localeCompare(b.date));
 
   section.innerHTML = `
-    <div class="charts-row charts-row--funnel">
-      <div class="chart-card chart-card--tall">
-        <div class="chart-title">Funnel de conversion</div>
-        <div class="funnel-bars">${barsHtml}</div>
-        <div class="funnel-insight">${insightHtml}</div>
+    <div class="relances-section ${overdue.length ? 'relances-section--danger' : ''}">
+      <div class="relances-section-header">
+        <span class="relances-section-icon">${overdue.length ? '🔴' : '✅'}</span>
+        <h3>En retard <span class="relances-count">${overdue.length}</span></h3>
       </div>
-      <div class="chart-card">
-        <div class="chart-title">Distribution des résultats</div>
-        <div class="chart-wrapper chart-wrapper--donut"><canvas id="chart-results"></canvas></div>
+      ${actionsTable(overdue, today)}
+    </div>
+
+    <div class="relances-section">
+      <div class="relances-section-header">
+        <span class="relances-section-icon">🟡</span>
+        <h3>Dans les 14 prochains jours <span class="relances-count">${upcoming.length}</span></h3>
       </div>
-    </div>`;
+      ${actionsTable(upcoming, today)}
+    </div>
 
-  /* Animate bars */
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    section.querySelectorAll('.funnel-bar-fill').forEach(el => {
-      el.style.width = el.dataset.w + '%';
-    });
-  }));
-
-  /* Donut */
-  const waiting  = studios.filter(s => s.status === 'En attente').length;
-  const negative = studios.filter(s => s.status === 'Négatif').length;
-  const noAns    = studios.filter(s => s.dateEnvoi && !s.reponse && !['Positif','Négatif','En attente'].includes(s.status)).length;
-
-  const donutData = [
-    positive && { l: 'Positif',      v: positive, c: '#34d399' },
-    waiting  && { l: 'En attente',   v: waiting,  c: '#f59e0b' },
-    negative && { l: 'Négatif',      v: negative, c: '#f87171' },
-    noAns    && { l: 'Sans réponse', v: noAns,    c: '#4a4a5a' },
-  ].filter(Boolean);
-
-  if (donutData.length) {
-    initChart('chart-results', {
-      type: 'doughnut',
-      data: {
-        labels:   donutData.map(d => d.l),
-        datasets: [{
-          data:            donutData.map(d => d.v),
-          backgroundColor: donutData.map(d => d.c + 'cc'),
-          borderColor:     donutData.map(d => d.c),
-          borderWidth: 1.5, hoverOffset: 8,
-        }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '65%',
-        plugins: {
-          legend: { position: 'bottom', labels: { color: '#8b8b9e', font: { size: 12 }, boxWidth: 12, padding: 12 } },
-          tooltip: tooltipConfig(),
-        },
-      },
-    });
-  }
+    ${later.length ? `
+    <div class="relances-section">
+      <div class="relances-section-header">
+        <span class="relances-section-icon">🔵</span>
+        <h3>Plus tard <span class="relances-count">${later.length}</span></h3>
+      </div>
+      ${actionsTable(later, today)}
+    </div>` : ''}`;
 }
