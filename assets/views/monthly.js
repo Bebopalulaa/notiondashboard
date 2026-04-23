@@ -39,23 +39,35 @@ function ymLabel(s) {
   return new Date(+y, +m - 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
 }
 
-function stepStats(studios, ym, getC1, getC2, repC1, repC2) {
-  const c1 = studios.filter(s => monthKey(getC1(s)) === ym);
-  const c2 = studios.filter(s => monthKey(getC2(s)) === ym);
-  return {
-    sent:    c1.length + c2.length,
-    replied: c1.filter(s => repC1(s)).length + c2.filter(s => repC2(s)).length,
-  };
-}
-
 function computeMonth(studios, ym) {
-  const r1 = s => s.c1Repondu, r2 = s => s.c2Repondu;
-  return {
-    s0:  stepStats(studios, ym, s => s.dateEnvoiC1,  s => s.dateEnvoiC2,  r1, r2),
-    s3:  stepStats(studios, ym, s => s.relEffC1J3,   s => s.relEffC2J3,   r1, r2),
-    s7:  stepStats(studios, ym, s => s.relEffC1J7,   s => s.relEffC2J7,   r1, r2),
-    s14: stepStats(studios, ym, s => s.relEffC1J14,  s => s.relEffC2J14,  r1, r2),
-  };
+  const s0  = { sent: 0, replied: 0 };
+  const s3  = { sent: 0, replied: 0 };
+  const s7  = { sent: 0, replied: 0 };
+  const s14 = { sent: 0, replied: 0 };
+
+  studios.forEach(s => {
+    if (monthKey(s.dateEnvoiC1)  === ym) s0.sent++;
+    if (monthKey(s.dateEnvoiC2)  === ym) s0.sent++;
+    if (monthKey(s.relEffC1J3)   === ym) s3.sent++;
+    if (monthKey(s.relEffC2J3)   === ym) s3.sent++;
+    if (monthKey(s.relEffC1J7)   === ym) s7.sent++;
+    if (monthKey(s.relEffC2J7)   === ym) s7.sent++;
+    if (monthKey(s.relEffC1J14)  === ym) s14.sent++;
+    if (monthKey(s.relEffC2J14)  === ym) s14.sent++;
+
+    // Attribute reply to the last email sent for that contact
+    for (const [replied, seq] of [
+      [s.c1Repondu, [[s14, s.relEffC1J14], [s7, s.relEffC1J7], [s3, s.relEffC1J3], [s0, s.dateEnvoiC1]]],
+      [s.c2Repondu, [[s14, s.relEffC2J14], [s7, s.relEffC2J7], [s3, s.relEffC2J3], [s0, s.dateEnvoiC2]]],
+    ]) {
+      if (!replied) continue;
+      for (const [step, date] of seq) {
+        if (date) { if (monthKey(date) === ym) step.replied++; break; }
+      }
+    }
+  });
+
+  return { s0, s3, s7, s14 };
 }
 
 /**
@@ -156,7 +168,10 @@ export function render(studios) {
     return s.sent + rate;
   }
 
-  const totTotal = tot.s0.sent + tot.s3.sent + tot.s7.sent + tot.s14.sent;
+  const repus = s => s.s0.replied + s.s3.replied + s.s7.replied + s.s14.replied;
+
+  const totTotal   = tot.s0.sent + tot.s3.sent + tot.s7.sent + tot.s14.sent;
+  const totReplied = repus(tot);
   const totalRow = `<tr class="totals-row">
     <td><strong>Total (12 mois)</strong></td>
     <td class="num"><strong>${cell(tot.s0)}</strong></td>
@@ -164,15 +179,16 @@ export function render(studios) {
     <td class="num"><strong>${cell(tot.s7)}</strong></td>
     <td class="num"><strong>${cell(tot.s14)}</strong></td>
     <td class="num"><strong>${totTotal}</strong></td>
-    <td class="num"><strong>${tot.s0.replied || '—'}</strong></td>
-    <td class="num"><strong>${tot.s0.sent ? Math.round(tot.s0.replied / tot.s0.sent * 100) + '%' : '—'}</strong></td>
-    <td class="num"><strong>${totTotal ? Math.round(tot.s0.replied / totTotal * 100) + '%' : '—'}</strong></td>
+    <td class="num"><strong>${totReplied || '—'}</strong></td>
+    <td class="num"><strong>${tot.s0.sent ? Math.round(totReplied / tot.s0.sent * 100) + '%' : '—'}</strong></td>
+    <td class="num"><strong>${totTotal   ? Math.round(totReplied / totTotal     * 100) + '%' : '—'}</strong></td>
   </tr>`;
 
   tbody.innerHTML = totalRow + rows.map(d => {
-    const total      = d.s0.sent + d.s3.sent + d.s7.sent + d.s14.sent;
-    const rateC      = d.s0.sent  ? Math.round(d.s0.replied / d.s0.sent  * 100) : null;
-    const rateMail   = total      ? Math.round(d.s0.replied / total       * 100) : null;
+    const total    = d.s0.sent + d.s3.sent + d.s7.sent + d.s14.sent;
+    const replied  = repus(d);
+    const rateC    = d.s0.sent ? Math.round(replied / d.s0.sent * 100) : null;
+    const rateMail = total     ? Math.round(replied / total     * 100) : null;
     const [y, m] = d.ym.split('-');
     return `<tr>
       <td>${MONTHS_LONG[+m - 1]} ${y}</td>
@@ -181,7 +197,7 @@ export function render(studios) {
       <td class="num">${cell(d.s7)}</td>
       <td class="num">${cell(d.s14)}</td>
       <td class="num"><strong>${total}</strong></td>
-      <td class="num">${d.s0.replied || '—'}</td>
+      <td class="num">${replied  || '—'}</td>
       <td class="num">${rateC    !== null ? rateC    + '%' : '—'}</td>
       <td class="num">${rateMail !== null ? rateMail + '%' : '—'}</td>
     </tr>`;
