@@ -39,22 +39,22 @@ function ymLabel(s) {
   return new Date(+y, +m - 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
 }
 
-function computeMonth(studios, ym) {
-  const cnt = (a, b) => studios.reduce((n, s) =>
-    n + (monthKey(a(s)) === ym ? 1 : 0) + (monthKey(b(s)) === ym ? 1 : 0), 0);
-
-  const c1inMonth = studios.filter(s => monthKey(s.dateEnvoiC1) === ym);
-  const c2inMonth = studios.filter(s => monthKey(s.dateEnvoiC2) === ym);
-  const contacts  = c1inMonth.length + c2inMonth.length;
-  const replied   = c1inMonth.filter(s => s.c1Repondu).length + c2inMonth.filter(s => s.c2Repondu).length;
-
+function stepStats(studios, ym, getC1, getC2, repC1, repC2) {
+  const c1 = studios.filter(s => monthKey(getC1(s)) === ym);
+  const c2 = studios.filter(s => monthKey(getC2(s)) === ym);
   return {
-    j0:       cnt(s => s.dateEnvoiC1,  s => s.dateEnvoiC2),
-    j3:       cnt(s => s.relEffC1J3,   s => s.relEffC2J3),
-    j7:       cnt(s => s.relEffC1J7,   s => s.relEffC2J7),
-    j14:      cnt(s => s.relEffC1J14,  s => s.relEffC2J14),
-    repus:    replied,
-    contacts,
+    sent:    c1.length + c2.length,
+    replied: c1.filter(s => repC1(s)).length + c2.filter(s => repC2(s)).length,
+  };
+}
+
+function computeMonth(studios, ym) {
+  const r1 = s => s.c1Repondu, r2 = s => s.c2Repondu;
+  return {
+    s0:  stepStats(studios, ym, s => s.dateEnvoiC1,  s => s.dateEnvoiC2,  r1, r2),
+    s3:  stepStats(studios, ym, s => s.relEffC1J3,   s => s.relEffC2J3,   r1, r2),
+    s7:  stepStats(studios, ym, s => s.relEffC1J7,   s => s.relEffC2J7,   r1, r2),
+    s14: stepStats(studios, ym, s => s.relEffC1J14,  s => s.relEffC2J14,  r1, r2),
   };
 }
 
@@ -113,10 +113,10 @@ export function render(studios) {
     data: {
       labels: months.map(ymLabel),
       datasets: [
-        { label: 'J+0',       data: data.map(d => d.j0),  backgroundColor: PALETTE[0] + 'cc', borderColor: PALETTE[0], borderWidth: 1, borderRadius: 3 },
-        { label: 'Relance J+3',  data: data.map(d => d.j3),  backgroundColor: PALETTE[1] + 'cc', borderColor: PALETTE[1], borderWidth: 1 },
-        { label: 'Relance J+7',  data: data.map(d => d.j7),  backgroundColor: PALETTE[2] + 'cc', borderColor: PALETTE[2], borderWidth: 1 },
-        { label: 'Relance J+14', data: data.map(d => d.j14), backgroundColor: PALETTE[3] + 'cc', borderColor: PALETTE[3], borderWidth: 1 },
+        { label: 'J+0',          data: data.map(d => d.s0.sent),  backgroundColor: PALETTE[0] + 'cc', borderColor: PALETTE[0], borderWidth: 1, borderRadius: 3 },
+        { label: 'Relance J+3',  data: data.map(d => d.s3.sent),  backgroundColor: PALETTE[1] + 'cc', borderColor: PALETTE[1], borderWidth: 1 },
+        { label: 'Relance J+7',  data: data.map(d => d.s7.sent),  backgroundColor: PALETTE[2] + 'cc', borderColor: PALETTE[2], borderWidth: 1 },
+        { label: 'Relance J+14', data: data.map(d => d.s14.sent), backgroundColor: PALETTE[3] + 'cc', borderColor: PALETTE[3], borderWidth: 1 },
       ],
     },
     options: {
@@ -136,47 +136,48 @@ export function render(studios) {
 
   /* ── Table ── */
   const tbody = document.getElementById('monthly-tbody');
-  const rows  = data.filter(d => d.j0 || d.j3 || d.j7 || d.j14).reverse();
+  const rows  = data.filter(d => d.s0.sent || d.s3.sent || d.s7.sent || d.s14.sent).reverse();
 
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">Aucun envoi sur les 12 derniers mois</td></tr>`;
     return;
   }
 
-  const totals = rows.reduce((acc, d) => ({
-    j0: acc.j0 + d.j0, j3: acc.j3 + d.j3, j7: acc.j7 + d.j7, j14: acc.j14 + d.j14,
-    repus: acc.repus + d.repus, contacts: acc.contacts + d.contacts,
-  }), { j0: 0, j3: 0, j7: 0, j14: 0, repus: 0, contacts: 0 });
+  const zero = { sent: 0, replied: 0 };
+  const add  = (a, b) => ({ sent: a.sent + b.sent, replied: a.replied + b.replied });
+  const tot  = rows.reduce((acc, d) => ({
+    s0: add(acc.s0, d.s0), s3: add(acc.s3, d.s3), s7: add(acc.s7, d.s7), s14: add(acc.s14, d.s14),
+  }), { s0: { ...zero }, s3: { ...zero }, s7: { ...zero }, s14: { ...zero } });
 
-  function relCell(count, base) {
-    if (!count) return '—';
-    const pct = base ? `<div class="rate-sub">${Math.round(count / base * 100)}%</div>` : '';
-    return count + pct;
+  function cell(s) {
+    if (!s.sent) return '—';
+    const rate = s.sent ? `<div class="rate-sub">${Math.round(s.replied / s.sent * 100)}%</div>` : '';
+    return s.sent + rate;
   }
 
   const totalRow = `<tr class="totals-row">
     <td><strong>Total (12 mois)</strong></td>
-    <td class="num"><strong>${totals.j0 || '—'}</strong></td>
-    <td class="num"><strong>${relCell(totals.j3, totals.j0)}</strong></td>
-    <td class="num"><strong>${relCell(totals.j7, totals.j0)}</strong></td>
-    <td class="num"><strong>${relCell(totals.j14, totals.j0)}</strong></td>
-    <td class="num"><strong>${totals.j0 + totals.j3 + totals.j7 + totals.j14}</strong></td>
-    <td class="num"><strong>${totals.repus || '—'}</strong></td>
-    <td class="num"><strong>${totals.contacts ? Math.round(totals.repus / totals.contacts * 100) + '%' : '—'}</strong></td>
+    <td class="num"><strong>${cell(tot.s0)}</strong></td>
+    <td class="num"><strong>${cell(tot.s3)}</strong></td>
+    <td class="num"><strong>${cell(tot.s7)}</strong></td>
+    <td class="num"><strong>${cell(tot.s14)}</strong></td>
+    <td class="num"><strong>${tot.s0.sent + tot.s3.sent + tot.s7.sent + tot.s14.sent}</strong></td>
+    <td class="num"><strong>${tot.s0.replied || '—'}</strong></td>
+    <td class="num"><strong>${tot.s0.sent ? Math.round(tot.s0.replied / tot.s0.sent * 100) + '%' : '—'}</strong></td>
   </tr>`;
 
   tbody.innerHTML = totalRow + rows.map(d => {
-    const total = d.j0 + d.j3 + d.j7 + d.j14;
-    const rate  = d.contacts ? Math.round(d.repus / d.contacts * 100) : null;
+    const total = d.s0.sent + d.s3.sent + d.s7.sent + d.s14.sent;
+    const rate  = d.s0.sent ? Math.round(d.s0.replied / d.s0.sent * 100) : null;
     const [y, m] = d.ym.split('-');
     return `<tr>
       <td>${MONTHS_LONG[+m - 1]} ${y}</td>
-      <td class="num">${d.j0 || '—'}</td>
-      <td class="num">${relCell(d.j3, d.j0)}</td>
-      <td class="num">${relCell(d.j7, d.j0)}</td>
-      <td class="num">${relCell(d.j14, d.j0)}</td>
+      <td class="num">${cell(d.s0)}</td>
+      <td class="num">${cell(d.s3)}</td>
+      <td class="num">${cell(d.s7)}</td>
+      <td class="num">${cell(d.s14)}</td>
       <td class="num"><strong>${total}</strong></td>
-      <td class="num">${d.repus || '—'}</td>
+      <td class="num">${d.s0.replied || '—'}</td>
       <td class="num">${rate !== null ? rate + '%' : '—'}</td>
     </tr>`;
   }).join('');
