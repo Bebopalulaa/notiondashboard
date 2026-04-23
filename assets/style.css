@@ -850,6 +850,9 @@ th.sort-asc .sort-icon, th.sort-desc .sort-icon { color: var(--accent); }
 .rdot--none    { color: var(--text-faint); }
 .dots-cell     { letter-spacing: 3px; white-space: nowrap; }
 
+.rate-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; line-height: 1; }
+.totals-row td { background: var(--surface-2); border-top: 2px solid var(--border); }
+
 /* ═══════════════════════════════════════════════════════════ KPI VARIANTS */
 .kpi-card--danger .kpi-value { color: #f87171; }
 

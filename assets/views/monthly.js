@@ -143,19 +143,42 @@ export function render(studios) {
     return;
   }
 
-  tbody.innerHTML = rows.map(d => {
+  const totals = rows.reduce((acc, d) => ({
+    j0: acc.j0 + d.j0, j3: acc.j3 + d.j3, j7: acc.j7 + d.j7, j14: acc.j14 + d.j14,
+    repus: acc.repus + d.repus, contacts: acc.contacts + d.contacts,
+  }), { j0: 0, j3: 0, j7: 0, j14: 0, repus: 0, contacts: 0 });
+
+  function relCell(count, base) {
+    if (!count) return '—';
+    const pct = base ? `<div class="rate-sub">${Math.round(count / base * 100)}%</div>` : '';
+    return count + pct;
+  }
+
+  const totalRow = `<tr class="totals-row">
+    <td><strong>Total (12 mois)</strong></td>
+    <td class="num"><strong>${totals.j0 || '—'}</strong></td>
+    <td class="num"><strong>${relCell(totals.j3, totals.j0)}</strong></td>
+    <td class="num"><strong>${relCell(totals.j7, totals.j0)}</strong></td>
+    <td class="num"><strong>${relCell(totals.j14, totals.j0)}</strong></td>
+    <td class="num"><strong>${totals.j0 + totals.j3 + totals.j7 + totals.j14}</strong></td>
+    <td class="num"><strong>${totals.repus || '—'}</strong></td>
+    <td class="num"><strong>${totals.contacts ? Math.round(totals.repus / totals.contacts * 100) + '%' : '—'}</strong></td>
+  </tr>`;
+
+  tbody.innerHTML = totalRow + rows.map(d => {
     const total = d.j0 + d.j3 + d.j7 + d.j14;
     const rate  = d.contacts ? Math.round(d.repus / d.contacts * 100) : null;
     const [y, m] = d.ym.split('-');
     return `<tr>
       <td>${MONTHS_LONG[+m - 1]} ${y}</td>
-      <td class="num">${d.j0  || '—'}</td>
-      <td class="num">${d.j3  || '—'}</td>
-      <td class="num">${d.j7  || '—'}</td>
-      <td class="num">${d.j14 || '—'}</td>
+      <td class="num">${d.j0 || '—'}</td>
+      <td class="num">${relCell(d.j3, d.j0)}</td>
+      <td class="num">${relCell(d.j7, d.j0)}</td>
+      <td class="num">${relCell(d.j14, d.j0)}</td>
       <td class="num"><strong>${total}</strong></td>
       <td class="num">${d.repus || '—'}</td>
       <td class="num">${rate !== null ? rate + '%' : '—'}</td>
     </tr>`;
   }).join('');
+}
 }
