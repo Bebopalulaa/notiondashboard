@@ -96,7 +96,8 @@ export function render(studios) {
               <th class="num">Rel. J+14</th>
               <th class="num">Total</th>
               <th class="num">Réponses</th>
-              <th class="num">Taux</th>
+              <th class="num" title="Réponses / contacts uniques">Taux/contact</th>
+              <th class="num" title="Réponses / total mails envoyés">Taux/mail</th>
             </tr>
           </thead>
           <tbody id="monthly-tbody"></tbody>
@@ -139,7 +140,7 @@ export function render(studios) {
   const rows  = data.filter(d => d.s0.sent || d.s3.sent || d.s7.sent || d.s14.sent).reverse();
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">Aucun envoi sur les 12 derniers mois</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">Aucun envoi sur les 12 derniers mois</td></tr>`;
     return;
   }
 
@@ -155,20 +156,23 @@ export function render(studios) {
     return s.sent + rate;
   }
 
+  const totTotal = tot.s0.sent + tot.s3.sent + tot.s7.sent + tot.s14.sent;
   const totalRow = `<tr class="totals-row">
     <td><strong>Total (12 mois)</strong></td>
     <td class="num"><strong>${cell(tot.s0)}</strong></td>
     <td class="num"><strong>${cell(tot.s3)}</strong></td>
     <td class="num"><strong>${cell(tot.s7)}</strong></td>
     <td class="num"><strong>${cell(tot.s14)}</strong></td>
-    <td class="num"><strong>${tot.s0.sent + tot.s3.sent + tot.s7.sent + tot.s14.sent}</strong></td>
+    <td class="num"><strong>${totTotal}</strong></td>
     <td class="num"><strong>${tot.s0.replied || '—'}</strong></td>
     <td class="num"><strong>${tot.s0.sent ? Math.round(tot.s0.replied / tot.s0.sent * 100) + '%' : '—'}</strong></td>
+    <td class="num"><strong>${totTotal ? Math.round(tot.s0.replied / totTotal * 100) + '%' : '—'}</strong></td>
   </tr>`;
 
   tbody.innerHTML = totalRow + rows.map(d => {
-    const total = d.s0.sent + d.s3.sent + d.s7.sent + d.s14.sent;
-    const rate  = d.s0.sent ? Math.round(d.s0.replied / d.s0.sent * 100) : null;
+    const total      = d.s0.sent + d.s3.sent + d.s7.sent + d.s14.sent;
+    const rateC      = d.s0.sent  ? Math.round(d.s0.replied / d.s0.sent  * 100) : null;
+    const rateMail   = total      ? Math.round(d.s0.replied / total       * 100) : null;
     const [y, m] = d.ym.split('-');
     return `<tr>
       <td>${MONTHS_LONG[+m - 1]} ${y}</td>
@@ -178,7 +182,8 @@ export function render(studios) {
       <td class="num">${cell(d.s14)}</td>
       <td class="num"><strong>${total}</strong></td>
       <td class="num">${d.s0.replied || '—'}</td>
-      <td class="num">${rate !== null ? rate + '%' : '—'}</td>
+      <td class="num">${rateC    !== null ? rateC    + '%' : '—'}</td>
+      <td class="num">${rateMail !== null ? rateMail + '%' : '—'}</td>
     </tr>`;
   }).join('');
 }
