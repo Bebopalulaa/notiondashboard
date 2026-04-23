@@ -181,4 +181,3 @@ export function render(studios) {
     </tr>`;
   }).join('');
 }
-}
