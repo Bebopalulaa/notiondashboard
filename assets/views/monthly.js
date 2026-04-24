@@ -1,11 +1,12 @@
 /**
- * View: Monthly activity — stacked bar chart + summary table by month.
+ * View: Monthly activity — stacked bar chart (month/week/day) + summary table by month.
  */
 
 import { initChart, PALETTE, tooltipConfig, scalesConfig } from '../charts.js';
 
-const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-const MONTHS_LONG  = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MONTHS_LONG = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+let _studios = [];
 
 /* ── skeleton ───────────────────────────────────────────────────── */
 function renderSkeleton(section) {
@@ -22,9 +23,20 @@ function renderSkeleton(section) {
     </div>`;
 }
 
-/* ── helpers ────────────────────────────────────────────────────── */
+/* ── key helpers ────────────────────────────────────────────────── */
 function monthKey(ds) { return ds ? ds.slice(0, 7) : null; }
 
+function weekKey(ds) {
+  if (!ds) return null;
+  const d = new Date(ds + 'T00:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function dayKey(ds) { return ds ? ds.slice(0, 10) : null; }
+
+/* ── bucket generators ──────────────────────────────────────────── */
 function last12months() {
   return Array.from({ length: 12 }, (_, i) => {
     const d = new Date();
@@ -34,40 +46,111 @@ function last12months() {
   });
 }
 
+function last16weeks() {
+  return Array.from({ length: 16 }, (_, i) => {
+    const d = new Date();
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1) - (15 - i) * 7);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+function last30days() {
+  return Array.from({ length: 30 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - 29 + i);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+/* ── label helpers ──────────────────────────────────────────────── */
 function ymLabel(s) {
   const [y, m] = s.split('-');
   return new Date(+y, +m - 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
 }
 
-function computeMonth(studios, ym) {
-  const s0  = { sent: 0, replied: 0 };
-  const s3  = { sent: 0, replied: 0 };
-  const s7  = { sent: 0, replied: 0 };
-  const s14 = { sent: 0, replied: 0 };
+function shortDateLabel(s) {
+  const [y, m, d] = s.split('-');
+  return new Date(+y, +m - 1, +d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+/* ── data aggregation ───────────────────────────────────────────── */
+function computeBucket(studios, bucket, keyFn) {
+  const s0 = { sent: 0, replied: 0 }, s3 = { sent: 0, replied: 0 };
+  const s7 = { sent: 0, replied: 0 }, s14 = { sent: 0, replied: 0 };
 
   studios.forEach(s => {
-    if (monthKey(s.dateEnvoiC1)  === ym) s0.sent++;
-    if (monthKey(s.dateEnvoiC2)  === ym) s0.sent++;
-    if (monthKey(s.relEffC1J3)   === ym) s3.sent++;
-    if (monthKey(s.relEffC2J3)   === ym) s3.sent++;
-    if (monthKey(s.relEffC1J7)   === ym) s7.sent++;
-    if (monthKey(s.relEffC2J7)   === ym) s7.sent++;
-    if (monthKey(s.relEffC1J14)  === ym) s14.sent++;
-    if (monthKey(s.relEffC2J14)  === ym) s14.sent++;
+    if (keyFn(s.dateEnvoiC1)  === bucket) s0.sent++;
+    if (keyFn(s.dateEnvoiC2)  === bucket) s0.sent++;
+    if (keyFn(s.relEffC1J3)   === bucket) s3.sent++;
+    if (keyFn(s.relEffC2J3)   === bucket) s3.sent++;
+    if (keyFn(s.relEffC1J7)   === bucket) s7.sent++;
+    if (keyFn(s.relEffC2J7)   === bucket) s7.sent++;
+    if (keyFn(s.relEffC1J14)  === bucket) s14.sent++;
+    if (keyFn(s.relEffC2J14)  === bucket) s14.sent++;
 
-    // Attribute reply to the last email sent for that contact
     for (const [replied, seq] of [
       [s.c1Repondu, [[s14, s.relEffC1J14], [s7, s.relEffC1J7], [s3, s.relEffC1J3], [s0, s.dateEnvoiC1]]],
       [s.c2Repondu, [[s14, s.relEffC2J14], [s7, s.relEffC2J7], [s3, s.relEffC2J3], [s0, s.dateEnvoiC2]]],
     ]) {
       if (!replied) continue;
       for (const [step, date] of seq) {
-        if (date) { if (monthKey(date) === ym) step.replied++; break; }
+        if (date) { if (keyFn(date) === bucket) step.replied++; break; }
       }
     }
   });
 
   return { s0, s3, s7, s14 };
+}
+
+/* ── chart rendering ────────────────────────────────────────────── */
+function renderChart(gran) {
+  let buckets, labelFn, keyFn, noun, suffix;
+  if (gran === 'week') {
+    buckets = last16weeks(); labelFn = shortDateLabel; keyFn = weekKey;
+    noun = 'semaine'; suffix = '16 dernières semaines';
+  } else if (gran === 'day') {
+    buckets = last30days(); labelFn = shortDateLabel; keyFn = dayKey;
+    noun = 'jour'; suffix = '30 derniers jours';
+  } else {
+    buckets = last12months(); labelFn = ymLabel; keyFn = monthKey;
+    noun = 'mois'; suffix = '12 derniers mois';
+  }
+
+  const titleEl = document.getElementById('chart-monthly-title');
+  if (titleEl) titleEl.textContent = `Envois par ${noun} et par type — ${suffix}`;
+
+  document.querySelectorAll('.gran-btn').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.gran === gran)
+  );
+
+  const data = buckets.map(b => computeBucket(_studios, b, keyFn));
+
+  initChart('chart-monthly-bar', {
+    type: 'bar',
+    data: {
+      labels: buckets.map(labelFn),
+      datasets: [
+        { label: 'J+0',          data: data.map(d => d.s0.sent),  backgroundColor: PALETTE[0] + 'cc', borderColor: PALETTE[0], borderWidth: 1, borderRadius: 3 },
+        { label: 'Relance J+3',  data: data.map(d => d.s3.sent),  backgroundColor: PALETTE[1] + 'cc', borderColor: PALETTE[1], borderWidth: 1 },
+        { label: 'Relance J+7',  data: data.map(d => d.s7.sent),  backgroundColor: PALETTE[2] + 'cc', borderColor: PALETTE[2], borderWidth: 1 },
+        { label: 'Relance J+14', data: data.map(d => d.s14.sent), backgroundColor: PALETTE[3] + 'cc', borderColor: PALETTE[3], borderWidth: 1 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8b8b9e', font: { size: 12 }, boxWidth: 12, padding: 16 } },
+        tooltip: tooltipConfig(),
+      },
+      scales: {
+        ...scalesConfig(),
+        x: { ...scalesConfig().x, stacked: true },
+        y: { ...scalesConfig().y, stacked: true },
+      },
+    },
+  });
 }
 
 /**
@@ -92,7 +175,14 @@ export function render(studios) {
 
   section.innerHTML = `
     <div class="chart-card" style="margin-bottom:24px">
-      <div class="chart-title">Envois par mois et par type — 12 derniers mois</div>
+      <div class="chart-header">
+        <div class="chart-title" id="chart-monthly-title">Envois par mois et par type — 12 derniers mois</div>
+        <div class="gran-toggle">
+          <button class="gran-btn active" data-gran="month">Mois</button>
+          <button class="gran-btn" data-gran="week">Semaines</button>
+          <button class="gran-btn" data-gran="day">Jours</button>
+        </div>
+      </div>
       <div class="chart-wrapper chart-wrapper--tall"><canvas id="chart-monthly-bar"></canvas></div>
     </div>
     <div class="table-card">
@@ -117,39 +207,18 @@ export function render(studios) {
       </div>
     </div>`;
 
+  _studios = studios;
+  renderChart('month');
+
+  document.querySelectorAll('.gran-btn').forEach(btn =>
+    btn.addEventListener('click', () => renderChart(btn.dataset.gran))
+  );
+
+  /* ── Table (monthly only) ── */
   const months = last12months();
-  const data   = months.map(m => ({ ym: m, ...computeMonth(studios, m) }));
-
-  /* ── Stacked bar chart ── */
-  initChart('chart-monthly-bar', {
-    type: 'bar',
-    data: {
-      labels: months.map(ymLabel),
-      datasets: [
-        { label: 'J+0',          data: data.map(d => d.s0.sent),  backgroundColor: PALETTE[0] + 'cc', borderColor: PALETTE[0], borderWidth: 1, borderRadius: 3 },
-        { label: 'Relance J+3',  data: data.map(d => d.s3.sent),  backgroundColor: PALETTE[1] + 'cc', borderColor: PALETTE[1], borderWidth: 1 },
-        { label: 'Relance J+7',  data: data.map(d => d.s7.sent),  backgroundColor: PALETTE[2] + 'cc', borderColor: PALETTE[2], borderWidth: 1 },
-        { label: 'Relance J+14', data: data.map(d => d.s14.sent), backgroundColor: PALETTE[3] + 'cc', borderColor: PALETTE[3], borderWidth: 1 },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { labels: { color: '#8b8b9e', font: { size: 12 }, boxWidth: 12, padding: 16 } },
-        tooltip: tooltipConfig(),
-      },
-      scales: {
-        ...scalesConfig(),
-        x: { ...scalesConfig().x, stacked: true },
-        y: { ...scalesConfig().y, stacked: true },
-      },
-    },
-  });
-
-  /* ── Table ── */
-  const tbody = document.getElementById('monthly-tbody');
-  const rows  = data.filter(d => d.s0.sent || d.s3.sent || d.s7.sent || d.s14.sent).reverse();
+  const data   = months.map(m => ({ ym: m, ...computeBucket(studios, m, monthKey) }));
+  const tbody  = document.getElementById('monthly-tbody');
+  const rows   = data.filter(d => d.s0.sent || d.s3.sent || d.s7.sent || d.s14.sent).reverse();
 
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">Aucun envoi sur les 12 derniers mois</td></tr>`;
@@ -164,7 +233,7 @@ export function render(studios) {
 
   function cell(s) {
     if (!s.sent) return '—';
-    const rate = s.sent ? `<div class="rate-sub">${Math.round(s.replied / s.sent * 100)}%</div>` : '';
+    const rate = `<div class="rate-sub">${Math.round(s.replied / s.sent * 100)}%</div>`;
     return s.sent + rate;
   }
 
