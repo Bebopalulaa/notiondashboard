@@ -26,12 +26,16 @@ function renderSkeleton(section) {
 /* ── key helpers ────────────────────────────────────────────────── */
 function monthKey(ds) { return ds ? ds.slice(0, 7) : null; }
 
+function localStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function weekKey(ds) {
   if (!ds) return null;
   const d = new Date(ds + 'T00:00:00');
   const day = d.getDay();
   d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  return d.toISOString().slice(0, 10);
+  return localStr(d);
 }
 
 function dayKey(ds) { return ds ? ds.slice(0, 10) : null; }
@@ -51,7 +55,7 @@ function last16weeks() {
     const d = new Date();
     const day = d.getDay();
     d.setDate(d.getDate() - (day === 0 ? 6 : day - 1) - (15 - i) * 7);
-    return d.toISOString().slice(0, 10);
+    return localStr(d);
   });
 }
 
@@ -59,7 +63,7 @@ function last30days() {
   return Array.from({ length: 30 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - 29 + i);
-    return d.toISOString().slice(0, 10);
+    return localStr(d);
   });
 }
 
